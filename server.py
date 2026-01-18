@@ -1,63 +1,26 @@
-from fastapi import FastAPI, HTTPException
-from motor.motor_asyncio import AsyncIOMotorClient
-from pydantic import BaseModel
+from flask import Flask, jsonify
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
+app = Flask(__name__)
 
-app = FastAPI()
+# بيانات الدخول التي ستضعها في الراوتر لاحقاً
+VPN_DATA = {
+    "username": "oasis_admin",
+    "password": "free_connect_2026"
+}
 
-# الاتصال بقاعدة البيانات
-MONGO_URL = os.getenv("MONGO_URL")
-client = AsyncIOMotorClient(MONGO_URL)
-db = client.oasis_db
-users_collection = db.users
+@app.route('/')
+def home():
+    return "<h1>Oasis Server is Running</h1><p>Waiting for Antenna Link...</p>"
 
-class UserPoints(BaseModel):
-    userId: str
-    points: int
+@app.route('/connect')
+def connect():
+    return jsonify({
+        "status": "Ready",
+        "bridge": "Active",
+        "msg": "Satellite Tunnel Open"
+    })
 
-@app.get("/api/")
-async def root():
-    return {"message": "Hello World - Oasis Server is Live"}
-
-@app.post("/api/add-points")
-async def add_points(user_data: UserPoints):
-    user = await users_collection.find_one({"userId": user_data.userId})
-    if user:
-        new_points = user.get("points", 0) + user_data.points
-        await users_collection.update_one(
-            {"userId": user_data.userId},
-            {"$set": {"points": new_points}}
-        )
-    else:
-        new_points = user_data.points
-        await users_collection.insert_one({"userId": user_data.userId, "points": new_points, "minutes": 0})
-    
-    return {"userId": user_data.userId, "total_points": new_points}
-
-@app.get("/api/convert-to-minutes/{userId}")
-async def convert_points(userId: str):
-    user = await users_collection.find_one({"userId": userId})
-    if not user:
-        return {"userId": userId, "minutes": 0, "remaining_points": 0}
-    
-    total_points = user.get("points", 0)
-    # الحسبة: كل 5 نقاط تساوي دقيقة واحدة
-    new_minutes = total_points // 5
-    remaining_points = total_points % 5
-    
-    total_minutes = user.get("minutes", 0) + new_minutes
-    
-    await users_collection.update_one(
-        {"userId": userId},
-        {"$set": {"points": remaining_points, "minutes": total_minutes}}
-    )
-    
-    return {
-        "userId": userId,
-        "total_minutes": total_minutes,
-        "new_minutes_added": new_minutes,
-        "remaining_points": remaining_points
-    }
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
