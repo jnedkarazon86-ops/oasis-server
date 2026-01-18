@@ -4,3 +4,4 @@ eventlet==0.33.3
 gunicorn==21.2.0
 flask-mail==0.9.1
 setuptools
+dnspython
