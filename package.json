@@ -2,7 +2,9 @@
   "dependencies": {
     "expo": "~50.0.0",
     "react-native": "0.73.4",
-    "react-native-webrtc": "118.0.0",
-    "socket.io-client": "^4.7.2"
+    "eas-cli": "latest"
+  },
+  "scripts": {
+    "build:android": "eas build --platform android --profile preview"
   }
 }
