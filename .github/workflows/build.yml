@@ -1,25 +1,29 @@
-name: APK-Direct-Build
+name: Mobile-Build
 on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - name: Install Dependencies
+        run: npm install
+      - name: Build Android Structure
+        run: npx expo prebuild --platform android --yes
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
-          java-version: '11'
+          java-version: '17'
           distribution: 'temurin'
-      - name: Build with Gradle
+      - name: Build APK
         run: |
-          # سحب أدوات البناء الأساسية فقط
-          sudo apt-get update
-          sudo apt-get install -y gradle
-          # محاولة البناء المباشر
-          chmod +x gradlew || true
-          ./gradlew assembleDebug || echo "Manual build needed"
-      - name: Upload
-        uses: actions/upload-artifact@v3
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
-          name: OasisApp
-          path: "**/*.apk"
+          name: Oasis-App
+          path: android/app/build/outputs/apk/debug/*.apk
