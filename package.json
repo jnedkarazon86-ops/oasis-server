@@ -10,6 +10,9 @@
     "expo": "~50.0.0",
     "react": "18.2.0",
     "react-native": "0.73.4",
-    "crypto-js": "^4.2.0"
+    "crypto-js": "^4.2.0",
+    "expo-permissions": "~14.4.0",
+    "expo-camera": "~14.1.1",
+    "expo-av": "~13.10.5"
   }
 }
