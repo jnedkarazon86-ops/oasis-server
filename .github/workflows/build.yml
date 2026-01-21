@@ -9,11 +9,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Install Expo Global
-        run: npm install -g expo-cli
       - name: Install Dependencies
         run: |
-          # هذا السطر سيحل مشكلة الصورة رقم 22
           npm install
           npm install expo
       - name: Setup Java 17
@@ -21,14 +18,15 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-      - name: Prebuild and Assemble
+      - name: Prebuild
+        run: npx expo prebuild --platform android --yes
+      - name: Assemble Release
         run: |
-          npx expo prebuild --platform android --yes
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
-      - name: Upload Finished APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Oasis-Secure-App
+          name: Oasis-App
           path: android/app/build/outputs/apk/debug/*.apk
