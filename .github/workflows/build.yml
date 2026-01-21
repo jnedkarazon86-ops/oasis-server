@@ -1,33 +1,19 @@
-name: Oasis-Ultra-Build
+name: Final-Oasis-Build
 on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 18
-      - name: Install Expo & Dependencies
+      - run: npm install
+      - name: Build Android
         run: |
-          npm install -g expo-cli
-          npm install --frozen-lockfile || npm install
-      - name: Setup Java
-        uses: actions/setup-java@v4
+          npx expo prebuild --platform android --yes
+          cd android && chmod +x gradlew && ./gradlew assembleDebug
+      - uses: actions/upload-artifact@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
-      - name: Prebuild (The Miracle Step)
-        run: npx expo prebuild --platform android --yes --no-interactive
-      - name: Final Assemble
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: Oasis-Full-App
-          path: android/app/build/outputs/apk/debug/*.apk
-
+          name: OasisApp
+          path: "**/*.apk"
