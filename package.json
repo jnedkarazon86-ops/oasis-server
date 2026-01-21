@@ -1,11 +1,9 @@
 {
   "name": "oasis-server",
   "version": "1.0.0",
-  "scripts": {
-    "android": "react-native run-android"
-  },
   "dependencies": {
     "react": "18.2.0",
-    "react-native": "0.72.3"
+    "react-native": "0.72.3",
+    "crypto-js": "^4.1.1"
   }
 }
