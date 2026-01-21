@@ -1,0 +1,41 @@
+name: Mobile-APK-Rescue
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Prepare Environment
+        run: |
+          # إنشاء هيكل أندرويد نظيف بعيداً عن ملفات المستودع الحالية لتجنب التعارض
+          npx react-native init TempApp --skip-install --version 0.72.3
+          cp -r TempApp/android .
+          cp TempApp/gradlew .
+          cp -r TempApp/gradle .
+          chmod +x gradlew
+          # التأكد من وجود المجلدات الضرورية
+          mkdir -p android/app/src/main/assets
+
+      - name: Setup Java JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Build Android APK
+        run: |
+          # بناء ملف APK في وضع Debug
+          ./gradlew assembleDebug
+
+      - name: Upload Finished APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: Oasis-App-Ready
+          path: android/app/build/outputs/apk/debug/*.apk
