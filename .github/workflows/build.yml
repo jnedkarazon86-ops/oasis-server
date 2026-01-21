@@ -1,4 +1,4 @@
-name: Mobile-Build
+name: Emergency-Fast-Build
 on: [push]
 jobs:
   build:
@@ -8,22 +8,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 18
-      - name: Install Dependencies
-        run: npm install
+      - name: Setup Expo
+        run: npx expo install
       - name: Build Android Structure
         run: npx expo prebuild --platform android --yes
-      - name: Setup Java
-        uses: actions/setup-java@v3
+      - name: Fast Java Setup
+        uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-      - name: Build APK
+      - name: Run Gradle Build
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
-      - name: Upload APK
+      - name: Get My APK
         uses: actions/upload-artifact@v4
         with:
-          name: Oasis-App
+          name: OasisApp-Success
           path: android/app/build/outputs/apk/debug/*.apk
