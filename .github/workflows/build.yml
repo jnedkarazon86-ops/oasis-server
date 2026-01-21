@@ -1,4 +1,4 @@
-name: Oasis-Secure-Build
+name: Oasis-Force-Build
 on: [push]
 jobs:
   build:
@@ -9,17 +9,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Fix Dependencies
+      - name: Install Tools
         run: |
-          npm install expo@latest
+          npm install -g expo-cli
+          npm install expo@50.0.0
           npm install
-      - name: Java Setup
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-      - name: Create Android Structure
-        run: npx expo prebuild --platform android --yes
+      - name: Prebuild (The Fix)
+        run: npx expo prebuild --platform android --no-interactive
       - name: Build APK
         run: |
           cd android
@@ -28,5 +24,5 @@ jobs:
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: Oasis-App-Final
+          name: Oasis-App
           path: "**/*.apk"
