@@ -2,16 +2,9 @@
   "expo": {
     "name": "Oasis",
     "slug": "oasis-app",
-    "version": "1.0.0",
-    "sdkVersion": "50.0.0",
     "android": {
       "package": "com.oasis.secure",
-      "permissions": [
-        "CAMERA",
-        "RECORD_AUDIO",
-        "MODIFY_AUDIO_SETTINGS"
-      ]
+      "permissions": ["CAMERA", "RECORD_AUDIO"]
     }
   }
 }
-
