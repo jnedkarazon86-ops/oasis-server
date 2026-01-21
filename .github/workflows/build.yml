@@ -1,32 +1,32 @@
-name: Oasis-Final-Success
+name: Oasis-Secure-Build
 on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Install Dependencies
+      - name: Fix Dependencies
         run: |
+          npm install expo@latest
           npm install
-          npm install expo
-      - name: Setup Java 17
+      - name: Java Setup
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-      - name: Prebuild
+      - name: Create Android Structure
         run: npx expo prebuild --platform android --yes
-      - name: Assemble Release
+      - name: Build APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
-      - name: Upload APK
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: Oasis-App
-          path: android/app/build/outputs/apk/debug/*.apk
+          name: Oasis-App-Final
+          path: "**/*.apk"
