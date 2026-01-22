@@ -1,19 +1,24 @@
-name: Final-Oasis-Build
-on: [push]
+name: Oasis Auto Build APK
+on:
+  push:
+    branches: [ main ]
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
         with:
           node-version: 18
-      - run: npm install
-      - name: Build Android
-        run: |
-          npx expo prebuild --platform android --yes
-          cd android && chmod +x gradlew && ./gradlew assembleDebug
-      - uses: actions/upload-artifact@v4
-        with:
-          name: OasisApp
-          path: "**/*.apk"
+
+      - name: Install Libraries
+        run: npm install
+
+      - name: Build APK
+        run: npx eas-cli build --platform android --profile preview --non-interactive
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
