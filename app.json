@@ -2,9 +2,10 @@
   "expo": {
     "name": "Oasis",
     "slug": "oasis-app",
+    "version": "1.0.0",
     "android": {
-      "package": "com.oasis.secure",
-      "permissions": ["CAMERA", "RECORD_AUDIO"]
+      "package": "com.yourname.oasis",
+      "permissions": ["CAMERA", "RECORD_AUDIO", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE"]
     }
   }
 }
