@@ -36,7 +36,7 @@ def index():
 def get_ads():
     return jsonify({
         "ad_url": ADSTERRA_DIRECT_LINK,
-        "interval": 15000
+        "interval": 300000
     })
 
 # --- إضافة مسارات الحالات الجديدة ---
