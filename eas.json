@@ -7,7 +7,7 @@
       "developmentClient": true,
       "distribution": "internal"
     },
-    "preview": {
+    "Preview": {
       "android": {
         "buildType": "apk",
         "credentialsSource": "remote"
