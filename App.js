@@ -24,8 +24,9 @@ export default function App() {
   const [isRecording, setIsRecording] = useState(false);
   const [sound, setSound] = useState(null);
 
-  const appID = 1773421291;
-  const appSign = "48f1a163421aeb2dfdf57ac214f51362d8733ee19be92d3745a160a2521de2d7";
+  // البيانات الخاصة بمشروعك (مستخرجة من صورك)
+  const appID = 1773421291; //
+  const appSign = "48f1a163421aeb2dfdf57ac214f51362d8733ee19be92d3745a160a2521de2d7"; //
   const SERVER_URL = 'https://oasis-server-e6sc.onrender.com';
 
   useEffect(() => {
@@ -34,12 +35,34 @@ export default function App() {
         if (currentUser.emailVerified) {
           setUser(currentUser);
           setIsWaitingVerify(false);
-          ZegoUIKitPrebuiltCallService.init(appID, appSign, currentUser.uid, currentUser.email.split('@')[0], [ZegoUIKitSignalingPlugin]);
+          
+          // إعداد خدمة المكالمات مع تفعيل الرنين في الخلفية
+          ZegoUIKitPrebuiltCallService.init(
+            appID, 
+            appSign, 
+            currentUser.uid, 
+            currentUser.email.split('@')[0], 
+            [ZegoUIKitSignalingPlugin],
+            {
+              ringtoneConfig: {
+                incomingCallRingtone: 'ringtone.mp3', // تأكد من وضع الملف في مجلد assets
+                outgoingCallRingtone: 'ringtone.mp3',
+              },
+              // تفعيل ميزات الأندرويد للرنين والتطبيق مغلق
+              notifyWhenAppRunningInBackgroundOrQuit: true,
+              isAndroidIndependentProcess: true,
+              androidNotificationConfig: {
+                channelID: "ZegoCall",
+                channelName: "ZegoCall",
+              },
+            }
+          );
         } else {
           setIsWaitingVerify(true);
         }
       } else {
         setUser(null);
+        ZegoUIKitPrebuiltCallService.uninit();
       }
     });
     return () => unsubscribeAuth();
@@ -72,7 +95,6 @@ export default function App() {
     setAuthLoading(false);
   };
 
-  // --- تشغيل الرسالة الصوتية عند الضغط عليها ---
   async function playVoiceMessage(url) {
     try {
       if (sound) await sound.unloadAsync();
@@ -172,8 +194,23 @@ export default function App() {
             </View>
         </View>
         <View style={styles.headerIcons}>
-          <ZegoSendCallInvitationButton invitees={[{ userID: 'global', userName: 'Oasis' }]} isVideoCall={true} resourceID={"oasis_video"} backgroundColor="#1f2c34" iconWidth={30} iconHeight={30} />
-          <ZegoSendCallInvitationButton invitees={[{ userID: 'global', userName: 'Oasis' }]} isVideoCall={false} resourceID={"oasis_voice"} backgroundColor="#1f2c34" iconWidth={30} iconHeight={30} />
+          {/* تم تعديل الـ resourceID ليتوافق مع الملف المرفوع في ZegoCloud */}
+          <ZegoSendCallInvitationButton 
+            invitees={[{ userID: 'global', userName: 'Oasis' }]} 
+            isVideoCall={true} 
+            resourceID={"zegouikit_call"} 
+            backgroundColor="#1f2c34" 
+            iconWidth={30} 
+            iconHeight={30} 
+          />
+          <ZegoSendCallInvitationButton 
+            invitees={[{ userID: 'global', userName: 'Oasis' }]} 
+            isVideoCall={false} 
+            resourceID={"zegouikit_call"} 
+            backgroundColor="#1f2c34" 
+            iconWidth={30} 
+            iconHeight={30} 
+          />
         </View>
       </View>
 
