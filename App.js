@@ -1,138 +1,113 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, FlatList, TextInput, ScrollView } from 'react-native';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { StyleSheet, Text, View, TouchableOpacity, TextInput, FlatList, Linking, Alert } from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function App() {
-  const [currentTab, setCurrentTab] = useState('Chats'); // Chats, Status, Calls, Settings
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchText, setSearchText] = useState('');
+  const [message, setMessage] = useState('');
+  const [chatMessages, setChatMessages] = useState([]);
+  const [isRecording, setIsRecording] = useState(false);
 
-  // واجهة الهيدر (العلوية)
-  const renderHeader = () => (
-    <View style={styles.header}>
-      {!isSearching ? (
-        <>
-          <Text style={styles.headerTitle}>أوايسس</Text>
-          <View style={styles.headerIcons}>
-            <TouchableOpacity style={styles.iconButton}><Ionicons name="camera-outline" size={24} color="white" /></TouchableOpacity>
-            <TouchableOpacity style={styles.iconButton} onPress={() => setIsSearching(true)}><Ionicons name="search" size={24} color="white" /></TouchableOpacity>
-            <TouchableOpacity style={styles.iconButton} onPress={() => setCurrentTab('Settings')}><Ionicons name="ellipsis-vertical" size={24} color="white" /></TouchableOpacity>
-          </View>
-        </>
-      ) : (
-        <View style={styles.searchBarContainer}>
-          <TouchableOpacity onPress={() => {setIsSearching(false); setSearchText('');}}><Ionicons name="arrow-back" size={24} color="white" /></TouchableOpacity>
-          <TextInput 
-            style={styles.searchInput} 
-            placeholder="بحث..." 
-            placeholderTextColor="#ccc" 
-            autoFocus 
-            value={searchText}
-            onChangeText={setSearchText}
-          />
-        </View>
-      )}
-    </View>
-  );
+  // 📞 وظيفة الاتصال الهاتفي
+  const makeCall = (type) => {
+    const phoneNumber = 'tel:0900000000'; // رقم افتراضي
+    Alert.alert('بدء اتصال', `هل تريد إجراء مكالمة ${type === 'video' ? 'فيديو' : 'صوتية'}؟`, [
+      { text: 'إلغاء', style: 'cancel' },
+      { text: 'اتصال', onPress: () => Linking.openURL(phoneNumber) }
+    ]);
+  };
 
-  // واجهة الإعدادات
-  const renderSettings = () => (
-    <ScrollView style={styles.container}>
-      <View style={styles.settingsHeader}>
-        <TouchableOpacity onPress={() => setCurrentTab('Chats')}><Ionicons name="arrow-back" size={24} color="white" /></TouchableOpacity>
-        <Text style={styles.settingsTitle}>الإعدادات</Text>
-      </View>
-      <SettingItem icon="key" title="الحساب" sub="الخصوصية، الأمان، تغيير الرقم" />
-      <SettingItem icon="chatbubble-ellipses" title="الدردشات" sub="المظهر، خلفيات الشاشة" />
-      <SettingItem icon="notifications" title="الإشعارات" sub="نغمات الرسائل والمجموعات" />
-      <SettingItem icon="data-usage" title="التخزين والبيانات" sub="التنزيل التلقائي، حجم الشبكة" type="material" />
-      <SettingItem icon="help-circle" title="المساعدة" sub="مركز المساعدة، اتصل بنا" />
-    </ScrollView>
-  );
+  // ✉️ وظيفة إرسال الرسالة
+  const sendMessage = () => {
+    if (message.trim().length > 0) {
+      setChatMessages([...chatMessages, { id: Date.now().toString(), text: message, time: '10:00 م' }]);
+      setMessage(''); // تفريغ الحقل بعد الإرسال
+    }
+  };
+
+  // 🎙️ وظيفة تسجيل الصوت (واجهة تفاعلية)
+  const toggleRecording = () => {
+    setIsRecording(!isRecording);
+    if (!isRecording) {
+      // هنا يبدأ التسجيل الحقيقي مستقبلاً
+    } else {
+      Alert.alert("تم الحفظ", "تم تسجيل المقطع الصوتي بنجاح");
+    }
+  };
 
   return (
     <View style={styles.container}>
-      {currentTab !== 'Settings' && renderHeader()}
-
-      <View style={{ flex: 1 }}>
-        {currentTab === 'Chats' && (
-          <View style={styles.centered}><Text style={styles.emptyText}>لا توجد مراسلات نصية بعد</Text></View>
-        )}
-        {currentTab === 'Status' && (
-          <View style={styles.statusSection}>
-            <View style={styles.myStatus}>
-              <View style={styles.avatarLarge}><View style={styles.plusIcon}><Ionicons name="add" size={16} color="white" /></View></View>
-              <View style={{marginLeft: 15}}><Text style={styles.nameText}>حالتي</Text><Text style={styles.subText}>انقر لإضافة حالة</Text></View>
-            </View>
-          </View>
-        )}
-        {currentTab === 'Calls' && (
-          <View style={styles.centered}><Text style={styles.emptyText}>لا توجد مكالمات هاتفية أو فيديو</Text></View>
-        )}
-        {currentTab === 'Settings' && renderSettings()}
+      {/* هيدر الدردشة مع أزرار الاتصال */}
+      <View style={styles.chatHeader}>
+        <View style={styles.userInfo}>
+          <Ionicons name="arrow-forward" size={24} color="white" />
+          <View style={styles.avatarSmall} />
+          <Text style={styles.userName}>صديقي</Text>
+        </View>
+        <View style={styles.headerIcons}>
+          <TouchableOpacity onPress={() => makeCall('video')} style={styles.iconSpacing}>
+            <Ionicons name="videocam" size={22} color="white" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => makeCall('voice')} style={styles.iconSpacing}>
+            <Ionicons name="call" size={20} color="white" />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* الأزرار العائمة الديناميكية */}
-      {currentTab === 'Chats' && (
-        <TouchableOpacity style={styles.fab} onPress={() => alert('إضافة دردشة بإيميل')}><MaterialCommunityIcons name="message-plus" size={24} color="white" /></TouchableOpacity>
-      )}
-      {currentTab === 'Status' && (
-        <View style={styles.fabColumn}>
-          <TouchableOpacity style={styles.fabSmall}><MaterialCommunityIcons name="pencil" size={22} color="white" /></TouchableOpacity>
-          <TouchableOpacity style={styles.fab}><Ionicons name="camera" size={26} color="white" /></TouchableOpacity>
-        </View>
-      )}
-      {currentTab === 'Calls' && (
-        <TouchableOpacity style={styles.fab}><MaterialCommunityIcons name="phone-plus" size={24} color="white" /></TouchableOpacity>
-      )}
+      {/* منطقة الرسائل */}
+      <FlatList 
+        data={chatMessages}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <View style={styles.msgBubble}><Text style={styles.msgText}>{item.text}</Text></View>
+        )}
+        style={styles.chatArea}
+      />
 
-      {/* شريط التنقل السفلي */}
-      <View style={styles.bottomNav}>
-        <NavButton label="دردشات" icon="chatbubbles" active={currentTab === 'Chats'} onPress={() => setCurrentTab('Chats')} />
-        <NavButton label="حالات" icon="aperture" active={currentTab === 'Status'} onPress={() => setCurrentTab('Status')} />
-        <NavButton label="مكالمات" icon="call" active={currentTab === 'Calls'} onPress={() => setCurrentTab('Calls')} />
+      {/* شريط الإدخال السفلي (رسائل + صوت) */}
+      <View style={styles.inputContainer}>
+        <View style={styles.inputWrapper}>
+          <TouchableOpacity><Ionicons name="happy-outline" size={24} color="#8596a0" /></TouchableOpacity>
+          <TextInput 
+            style={styles.textInput} 
+            placeholder="الرسالة" 
+            placeholderTextColor="#8596a0"
+            value={message}
+            onChangeText={setMessage}
+            multiline
+          />
+          <TouchableOpacity style={styles.iconSpacing}><Ionicons name="attach" size={24} color="#8596a0" style={{transform: [{rotate: '45deg'}]}} /></TouchableOpacity>
+          {!message && <TouchableOpacity><Ionicons name="camera" size={24} color="#8596a0" /></TouchableOpacity>}
+        </View>
+
+        {/* زر الإرسال أو الميكروفون الديناميكي */}
+        <TouchableOpacity 
+          style={[styles.actionButton, isRecording && {backgroundColor: 'red'}]} 
+          onPress={message ? sendMessage : toggleRecording}
+        >
+          {message ? (
+            <MaterialCommunityIcons name="send" size={24} color="white" style={{transform: [{scaleX: -1}]}} />
+          ) : (
+            <MaterialCommunityIcons name={isRecording ? "stop" : "microphone"} size={24} color="white" />
+          )}
+        </TouchableOpacity>
       </View>
     </View>
   );
 }
 
-// مكونات فرعية للكود
-const SettingItem = ({ icon, title, sub, type }) => (
-  <TouchableOpacity style={styles.settingItem}>
-    {type === 'material' ? <MaterialCommunityIcons name={icon} size={24} color="#8596a0" /> : <Ionicons name={icon} size={24} color="#8596a0" />}
-    <View style={{marginLeft: 20}}><Text style={styles.nameText}>{title}</Text><Text style={styles.subText}>{sub}</Text></View>
-  </TouchableOpacity>
-);
-
-const NavButton = ({ label, icon, active, onPress }) => (
-  <TouchableOpacity style={styles.navItem} onPress={onPress}>
-    <Ionicons name={icon} size={24} color={active ? '#25D366' : '#8596a0'} />
-    <Text style={{color: active ? '#25D366' : '#8596a0', fontSize: 12, marginTop: 4}}>{label}</Text>
-  </TouchableOpacity>
-);
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#121b22' },
-  header: { height: 100, backgroundColor: '#1f2c34', flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingHorizontal: 15, paddingBottom: 15 },
-  headerTitle: { color: 'white', fontSize: 22, fontWeight: 'bold' },
-  headerIcons: { flexDirection: 'row', alignItems: 'center' },
-  iconButton: { marginLeft: 20 },
-  searchBarContainer: { flexDirection: 'row', alignItems: 'center', flex: 1, marginBottom: -5 },
-  searchInput: { flex: 1, color: 'white', marginLeft: 15, fontSize: 18, borderBottomWidth: 0.5, borderBottomColor: '#25D366' },
-  bottomNav: { height: 70, backgroundColor: '#1f2c34', flexDirection: 'row', borderTopWidth: 0.3, borderTopColor: '#233138' },
-  navItem: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  fab: { position: 'absolute', bottom: 90, right: 20, backgroundColor: '#25D366', width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 5 },
-  fabColumn: { position: 'absolute', bottom: 90, right: 20, alignItems: 'center' },
-  fabSmall: { backgroundColor: '#233138', width: 45, height: 45, borderRadius: 22.5, justifyContent: 'center', alignItems: 'center', marginBottom: 15, elevation: 5 },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyText: { color: '#8596a0', fontSize: 16 },
-  statusSection: { padding: 15 },
-  myStatus: { flexDirection: 'row', alignItems: 'center' },
-  avatarLarge: { width: 55, height: 55, borderRadius: 27.5, backgroundColor: '#3d4b55' },
-  plusIcon: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#25D366', borderRadius: 10, width: 20, height: 20, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#121b22' },
-  nameText: { color: 'white', fontSize: 16, fontWeight: '600' },
-  subText: { color: '#8596a0', fontSize: 14, marginTop: 2 },
-  settingsHeader: { height: 100, backgroundColor: '#1f2c34', flexDirection: 'row', alignItems: 'flex-end', padding: 15 },
-  settingsTitle: { color: 'white', fontSize: 20, marginLeft: 30, fontWeight: 'bold' },
-  settingItem: { flexDirection: 'row', padding: 20, alignItems: 'center' }
+  container: { flex: 1, backgroundColor: '#0b141a' },
+  chatHeader: { height: 90, backgroundColor: '#1f2c34', flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', padding: 15 },
+  userInfo: { flexDirection: 'row', alignItems: 'center' },
+  avatarSmall: { width: 35, height: 35, borderRadius: 17.5, backgroundColor: '#3d4b55', marginHorizontal: 10 },
+  userName: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+  headerIcons: { flexDirection: 'row', marginBottom: 5 },
+  iconSpacing: { marginLeft: 20 },
+  chatArea: { flex: 1, padding: 10 },
+  msgBubble: { alignSelf: 'flex-end', backgroundColor: '#005c4b', padding: 10, borderRadius: 10, marginBottom: 5, maxWidth: '80%' },
+  msgText: { color: 'white', fontSize: 16 },
+  inputContainer: { flexDirection: 'row', padding: 10, alignItems: 'center' },
+  inputWrapper: { flex: 1, flexDirection: 'row', backgroundColor: '#1f2c34', borderRadius: 25, paddingHorizontal: 15, alignItems: 'center', height: 45 },
+  textInput: { flex: 1, color: 'white', marginHorizontal: 10, fontSize: 16, textAlign: 'right' },
+  actionButton: { width: 45, height: 45, backgroundColor: '#25D366', borderRadius: 22.5, justifyContent: 'center', alignItems: 'center', marginLeft: 5 }
 });
