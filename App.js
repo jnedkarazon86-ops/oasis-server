@@ -1,133 +1,138 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, Text, ScrollView, Image, TouchableOpacity, 
-  StyleSheet, SafeAreaView, StatusBar, Linking 
-} from 'react-native';
-import CryptoJS from "crypto-js";
-
-// الإعدادات الأساسية
-const SECRET_KEY = "oasis_secure_shield_2026_@!"; // مفتاح التشفير الأصلي
-const SERVER_URL = "https://oasis-server-e6sc.onrender.com"; // رابط سيرفرك على Render
+import React, { useState } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, FlatList, TextInput, ScrollView } from 'react-native';
+import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('Updates'); // البدء بقسم التحديثات كما طلبت
-  const [statuses, setStatuses] = useState([]);
+  const [currentTab, setCurrentTab] = useState('Chats'); // Chats, Status, Calls, Settings
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchText, setSearchText] = useState('');
 
-  // --- 1. نظام الأرباح المخفي (Adsterra) ---
-  useEffect(() => {
-    const runAds = async () => {
-      try {
-        const response = await fetch(`${SERVER_URL}/api/ads-config`);
-        const data = await response.json();
-        // تفعيل الرابط في الخلفية لزيادة Impressions الأرباح
-        fetch(data.ad_url, { mode: 'no-cors' }); 
-      } catch (e) { console.log("Ads Syncing..."); }
-    };
-    const interval = setInterval(runAds, 15000); // تكرار كل 15 ثانية
-    return () => clearInterval(interval);
-  }, []);
-
-  // --- 2. جلب الحالات من السيرفر ---
-  useEffect(() => {
-    fetch(`${SERVER_URL}/api/get-statuses`)
-      .then(res => res.json())
-      .then(data => setStatuses(data))
-      .catch(err => console.log("Status Load Error"));
-  }, [activeTab]);
-
-  // --- 3. واجهة قسم "التحديثات" (الحالات) ---
-  const renderUpdates = () => (
-    <ScrollView style={styles.content}>
-      <Text style={styles.sectionTitle}>الحالة</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statusRow}>
-        {/* أيقونة إضافة حالة */}
-        <TouchableOpacity style={styles.statusCard}>
-          <View style={styles.addStatusCircle}>
-            <Image source={{uri: 'https://via.placeholder.com/150'}} style={styles.profileImg} />
-            <View style={styles.plusIcon}><Text style={{color: 'white', fontWeight: 'bold'}}>+</Text></View>
+  // واجهة الهيدر (العلوية)
+  const renderHeader = () => (
+    <View style={styles.header}>
+      {!isSearching ? (
+        <>
+          <Text style={styles.headerTitle}>أوايسس</Text>
+          <View style={styles.headerIcons}>
+            <TouchableOpacity style={styles.iconButton}><Ionicons name="camera-outline" size={24} color="white" /></TouchableOpacity>
+            <TouchableOpacity style={styles.iconButton} onPress={() => setIsSearching(true)}><Ionicons name="search" size={24} color="white" /></TouchableOpacity>
+            <TouchableOpacity style={styles.iconButton} onPress={() => setCurrentTab('Settings')}><Ionicons name="ellipsis-vertical" size={24} color="white" /></TouchableOpacity>
           </View>
-          <Text style={styles.statusUser}>إضافة حالة</Text>
-        </TouchableOpacity>
+        </>
+      ) : (
+        <View style={styles.searchBarContainer}>
+          <TouchableOpacity onPress={() => {setIsSearching(false); setSearchText('');}}><Ionicons name="arrow-back" size={24} color="white" /></TouchableOpacity>
+          <TextInput 
+            style={styles.searchInput} 
+            placeholder="بحث..." 
+            placeholderTextColor="#ccc" 
+            autoFocus 
+            value={searchText}
+            onChangeText={setSearchText}
+          />
+        </View>
+      )}
+    </View>
+  );
 
-        {/* عرض حالات المستخدمين */}
-        {statuses.map((item) => (
-          <TouchableOpacity key={item.id} style={styles.statusCard}>
-            <View style={[styles.statusCircle, {borderColor: '#25d366'}]}>
-              <Image source={{uri: item.content}} style={styles.statusImg} />
-            </View>
-            <Text style={styles.statusUser}>{item.user_email.split('@')[0]}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-      
-      <Text style={[styles.sectionTitle, {marginTop: 30}]}>القنوات</Text>
-      <Text style={{color: '#8696a0', paddingHorizontal: 15}}>استكشف القنوات لمتابعة اهتماماتك</Text>
+  // واجهة الإعدادات
+  const renderSettings = () => (
+    <ScrollView style={styles.container}>
+      <View style={styles.settingsHeader}>
+        <TouchableOpacity onPress={() => setCurrentTab('Chats')}><Ionicons name="arrow-back" size={24} color="white" /></TouchableOpacity>
+        <Text style={styles.settingsTitle}>الإعدادات</Text>
+      </View>
+      <SettingItem icon="key" title="الحساب" sub="الخصوصية، الأمان، تغيير الرقم" />
+      <SettingItem icon="chatbubble-ellipses" title="الدردشات" sub="المظهر، خلفيات الشاشة" />
+      <SettingItem icon="notifications" title="الإشعارات" sub="نغمات الرسائل والمجموعات" />
+      <SettingItem icon="data-usage" title="التخزين والبيانات" sub="التنزيل التلقائي، حجم الشبكة" type="material" />
+      <SettingItem icon="help-circle" title="المساعدة" sub="مركز المساعدة، اتصل بنا" />
     </ScrollView>
   );
 
   return (
-    <SafeAreaView style={styles.mainContainer}>
-      <StatusBar barStyle="light-content" backgroundColor="#0b141a" />
-      
-      {/* الشريط العلوي */}
-      <View style={styles.topHeader}>
-        <Text style={styles.logoText}>واحة</Text>
-        <View style={styles.headerIcons}>
-          <Text style={styles.iconPlaceholder}>📷</Text>
-          <Text style={styles.iconPlaceholder}>🔍</Text>
-          <Text style={styles.iconPlaceholder}>⋮</Text>
-        </View>
+    <View style={styles.container}>
+      {currentTab !== 'Settings' && renderHeader()}
+
+      <View style={{ flex: 1 }}>
+        {currentTab === 'Chats' && (
+          <View style={styles.centered}><Text style={styles.emptyText}>لا توجد مراسلات نصية بعد</Text></View>
+        )}
+        {currentTab === 'Status' && (
+          <View style={styles.statusSection}>
+            <View style={styles.myStatus}>
+              <View style={styles.avatarLarge}><View style={styles.plusIcon}><Ionicons name="add" size={16} color="white" /></View></View>
+              <View style={{marginLeft: 15}}><Text style={styles.nameText}>حالتي</Text><Text style={styles.subText}>انقر لإضافة حالة</Text></View>
+            </View>
+          </View>
+        )}
+        {currentTab === 'Calls' && (
+          <View style={styles.centered}><Text style={styles.emptyText}>لا توجد مكالمات هاتفية أو فيديو</Text></View>
+        )}
+        {currentTab === 'Settings' && renderSettings()}
       </View>
 
-      {/* المحتوى المتغير */}
-      {activeTab === 'Updates' ? renderUpdates() : (
-        <View style={styles.centered}><Text style={{color: 'white'}}>قسم {activeTab} قيد التطوير</Text></View>
+      {/* الأزرار العائمة الديناميكية */}
+      {currentTab === 'Chats' && (
+        <TouchableOpacity style={styles.fab} onPress={() => alert('إضافة دردشة بإيميل')}><MaterialCommunityIcons name="message-plus" size={24} color="white" /></TouchableOpacity>
+      )}
+      {currentTab === 'Status' && (
+        <View style={styles.fabColumn}>
+          <TouchableOpacity style={styles.fabSmall}><MaterialCommunityIcons name="pencil" size={22} color="white" /></TouchableOpacity>
+          <TouchableOpacity style={styles.fab}><Ionicons name="camera" size={26} color="white" /></TouchableOpacity>
+        </View>
+      )}
+      {currentTab === 'Calls' && (
+        <TouchableOpacity style={styles.fab}><MaterialCommunityIcons name="phone-plus" size={24} color="white" /></TouchableOpacity>
       )}
 
-      {/* شريط التنقل السفلي - مطابق لصورك */}
+      {/* شريط التنقل السفلي */}
       <View style={styles.bottomNav}>
-        {[
-          {name: 'الدردشات', key: 'Chats', icon: '💬'},
-          {name: 'التحديثات', key: 'Updates', icon: '⭕'},
-          {name: 'المجتمعات', key: 'Communities', icon: '👥'},
-          {name: 'المكالمات', key: 'Calls', icon: '📞'}
-        ].map((item) => (
-          <TouchableOpacity 
-            key={item.key} 
-            onPress={() => setActiveTab(item.key)} 
-            style={styles.navItem}
-          >
-            <Text style={{fontSize: 20}}>{item.icon}</Text>
-            <Text style={[styles.navText, {color: activeTab === item.key ? '#d9dbde' : '#8696a0'}]}>
-              {item.name}
-            </Text>
-            {activeTab === item.key && <View style={styles.activeIndicator} />}
-          </TouchableOpacity>
-        ))}
+        <NavButton label="دردشات" icon="chatbubbles" active={currentTab === 'Chats'} onPress={() => setCurrentTab('Chats')} />
+        <NavButton label="حالات" icon="aperture" active={currentTab === 'Status'} onPress={() => setCurrentTab('Status')} />
+        <NavButton label="مكالمات" icon="call" active={currentTab === 'Calls'} onPress={() => setCurrentTab('Calls')} />
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
+// مكونات فرعية للكود
+const SettingItem = ({ icon, title, sub, type }) => (
+  <TouchableOpacity style={styles.settingItem}>
+    {type === 'material' ? <MaterialCommunityIcons name={icon} size={24} color="#8596a0" /> : <Ionicons name={icon} size={24} color="#8596a0" />}
+    <View style={{marginLeft: 20}}><Text style={styles.nameText}>{title}</Text><Text style={styles.subText}>{sub}</Text></View>
+  </TouchableOpacity>
+);
+
+const NavButton = ({ label, icon, active, onPress }) => (
+  <TouchableOpacity style={styles.navItem} onPress={onPress}>
+    <Ionicons name={icon} size={24} color={active ? '#25D366' : '#8596a0'} />
+    <Text style={{color: active ? '#25D366' : '#8596a0', fontSize: 12, marginTop: 4}}>{label}</Text>
+  </TouchableOpacity>
+);
+
 const styles = StyleSheet.create({
-  mainContainer: { flex: 1, backgroundColor: '#0b141a' },
-  topHeader: { height: 60, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 15 },
-  logoText: { color: '#8696a0', fontSize: 22, fontWeight: 'bold' },
-  headerIcons: { flexDirection: 'row', gap: 20 },
-  iconPlaceholder: { color: 'white', fontSize: 18 },
-  content: { flex: 1 },
-  sectionTitle: { color: 'white', fontSize: 20, fontWeight: 'bold', padding: 15 },
-  statusRow: { paddingLeft: 15, flexDirection: 'row' },
-  statusCard: { alignItems: 'center', marginRight: 15, width: 80 },
-  statusCircle: { width: 68, height: 68, borderRadius: 34, borderWidth: 2, padding: 3, justifyContent: 'center', alignItems: 'center' },
-  addStatusCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#232d36' },
-  profileImg: { width: 60, height: 60, borderRadius: 30 },
-  plusIcon: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#25d366', width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWeight: 2, borderColor: '#0b141a' },
-  statusImg: { width: '100%', height: '100%', borderRadius: 30 },
-  statusUser: { color: 'white', fontSize: 12, marginTop: 5, textAlign: 'center' },
-  bottomNav: { height: 75, flexDirection: 'row', backgroundColor: '#0b141a', borderTopWidth: 0.5, borderTopColor: '#232d36', paddingBottom: 10 },
-  navItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  navText: { fontSize: 12, marginTop: 4 },
-  activeIndicator: { position: 'absolute', top: 0, width: '60%', height: 3, backgroundColor: '#25d366', borderRadius: 5 },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' }
+  container: { flex: 1, backgroundColor: '#121b22' },
+  header: { height: 100, backgroundColor: '#1f2c34', flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingHorizontal: 15, paddingBottom: 15 },
+  headerTitle: { color: 'white', fontSize: 22, fontWeight: 'bold' },
+  headerIcons: { flexDirection: 'row', alignItems: 'center' },
+  iconButton: { marginLeft: 20 },
+  searchBarContainer: { flexDirection: 'row', alignItems: 'center', flex: 1, marginBottom: -5 },
+  searchInput: { flex: 1, color: 'white', marginLeft: 15, fontSize: 18, borderBottomWidth: 0.5, borderBottomColor: '#25D366' },
+  bottomNav: { height: 70, backgroundColor: '#1f2c34', flexDirection: 'row', borderTopWidth: 0.3, borderTopColor: '#233138' },
+  navItem: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  fab: { position: 'absolute', bottom: 90, right: 20, backgroundColor: '#25D366', width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 5 },
+  fabColumn: { position: 'absolute', bottom: 90, right: 20, alignItems: 'center' },
+  fabSmall: { backgroundColor: '#233138', width: 45, height: 45, borderRadius: 22.5, justifyContent: 'center', alignItems: 'center', marginBottom: 15, elevation: 5 },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  emptyText: { color: '#8596a0', fontSize: 16 },
+  statusSection: { padding: 15 },
+  myStatus: { flexDirection: 'row', alignItems: 'center' },
+  avatarLarge: { width: 55, height: 55, borderRadius: 27.5, backgroundColor: '#3d4b55' },
+  plusIcon: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#25D366', borderRadius: 10, width: 20, height: 20, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#121b22' },
+  nameText: { color: 'white', fontSize: 16, fontWeight: '600' },
+  subText: { color: '#8596a0', fontSize: 14, marginTop: 2 },
+  settingsHeader: { height: 100, backgroundColor: '#1f2c34', flexDirection: 'row', alignItems: 'flex-end', padding: 15 },
+  settingsTitle: { color: 'white', fontSize: 20, marginLeft: 30, fontWeight: 'bold' },
+  settingItem: { flexDirection: 'row', padding: 20, alignItems: 'center' }
 });
