@@ -2,50 +2,47 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, TextInput, FlatList, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
-// 1. استيرادات المحركات (Zego + Firebase)
+// 1. استيرادات المحركات (Zego + Firebase + Audio)
 import ZegoUIKitPrebuiltCallService, { ZegoSendCallInvitationButton } from '@zegocloud/zego-uikit-prebuilt-call-rn';
 import * as ZegoUIKitSignalingPlugin from 'zego-uikit-signaling-plugin-rn';
 import { db } from './firebaseConfig'; 
 import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { Audio } from 'expo-av'; // مكتبة الصوت
 
 export default function App() {
   const [message, setMessage] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
   const [isRecording, setIsRecording] = useState(false);
+  const [recording, setRecording] = useState(null);
 
-  // 🔑 مفاتيحك الخاصة
+  // 🔑 مفاتيحك الخاصة (ZegoCloud)
   const appID = 1773421291;
   const appSign = "48f1a163421aeb2dfdf57ac214f51362d8733ee19be92d3745a160a2521de2d7";
   
-  const userID = "oasis_user_123"; // هذا المعرف يجب أن يكون فريداً لكل مستخدم
+  // ☁️ مفاتيح Cloudinary الخاصة بك
+  const CLOUD_NAME = "dvcnccegi"; 
+  const UPLOAD_PRESET = "صوت أوايسس"; 
+
+  const userID = "oasis_user_123"; 
   const userName = "مستخدم_أوايسس";
 
-  // 🛠️ أولاً: إعداد المحركات عند التشغيل
   useEffect(() => {
-    // إعداد ZegoCloud للمكالمات
-    ZegoUIKitPrebuiltCallService.init(
-      appID, appSign, userID, userName, [ZegoUIKitSignalingPlugin]
-    );
+    ZegoUIKitPrebuiltCallService.init(appID, appSign, userID, userName, [ZegoUIKitSignalingPlugin]);
 
-    // إعداد "الاستماع" لرسائل Firebase (لجلب الرسائل فور وصولها)
     const q = query(collection(db, "messages"), orderBy("timestamp", "asc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const msgs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setChatMessages(msgs);
     });
 
-    return () => unsubscribe(); // تنظيف عند الخروج
+    return () => unsubscribe();
   }, []);
 
-  // ✉️ ثانياً: وظيفة إرسال الرسالة النصية لـ Firebase
+  // ✉️ إرسال النص
   const sendMessage = async () => {
     if (message.trim().length > 0) {
       const textToSend = message.trim();
-      setMessage(''); // مسح الخانة فوراً
-
+      setMessage('');
       try {
         await addDoc(collection(db, "messages"), {
           text: textToSend,
@@ -54,25 +51,63 @@ export default function App() {
           timestamp: serverTimestamp(),
           type: 'text'
         });
-      } catch (error) {
-        Alert.alert("خطأ", "فشل الاتصال بـ Firebase");
-      }
+      } catch (error) { Alert.alert("خطأ", "فشل الاتصال بـ Firebase"); }
     }
   };
 
-  // 🎙️ ثالثاً: وظيفة الميكروفون (سيتم ربطها بـ Storage لاحقاً)
-  const toggleRecording = () => {
-    setIsRecording(!isRecording);
-    if (!isRecording) {
-      console.log("بدء التسجيل...");
-    } else {
-      Alert.alert("قريباً", "سيتم تفعيل رفع الصوت لـ Firebase Storage في الخطوة القادمة.");
-    }
+  // 🎙️ وظائف التسجيل والرفع لـ Cloudinary
+  async function startRecording() {
+    try {
+      const permission = await Audio.requestPermissionsAsync();
+      if (permission.status === "granted") {
+        await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+        const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+        setRecording(recording);
+        setIsRecording(true);
+      }
+    } catch (err) { Alert.alert("خطأ", "تأكد من إذن الميكروفون"); }
+  }
+
+  async function stopRecording() {
+    setIsRecording(false);
+    if (!recording) return;
+    await recording.stopAndUnloadAsync();
+    const uri = recording.getURI();
+    setRecording(null);
+    uploadAudioToCloudinary(uri);
+  }
+
+  const uploadAudioToCloudinary = async (fileUri) => {
+    try {
+      let formData = new FormData();
+      formData.append('file', {
+        uri: fileUri,
+        type: 'audio/m4a',
+        name: `voice_${Date.now()}.m4a`,
+      });
+      formData.append('upload_preset', UPLOAD_PRESET);
+
+      let response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      let data = await response.json();
+      
+      if (data.secure_url) {
+        await addDoc(collection(db, "messages"), {
+          audioUrl: data.secure_url,
+          senderId: userID,
+          senderName: userName,
+          timestamp: serverTimestamp(),
+          type: 'audio'
+        });
+      }
+    } catch (e) { Alert.alert("خطأ", "فشل رفع الصوت لـ Cloudinary"); }
   };
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.container}>
-      {/* الهيدر مع أزرار Zego الحقيقية */}
       <View style={styles.header}>
         <View style={styles.headerRight}>
           <TouchableOpacity><Ionicons name="arrow-forward" size={24} color="white" /></TouchableOpacity>
@@ -85,13 +120,19 @@ export default function App() {
         </View>
       </View>
 
-      {/* قائمة الرسائل المستلمة من Firebase */}
       <FlatList 
         data={chatMessages}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <View style={[styles.bubble, item.senderId === userID ? styles.myBubble : styles.otherBubble]}>
-            <Text style={styles.messageText}>{item.text}</Text>
+            {item.type === 'audio' ? (
+              <View style={styles.audioRow}>
+                <Ionicons name="mic" size={20} color="white" />
+                <Text style={styles.messageText}> بصمة صوتية</Text>
+              </View>
+            ) : (
+              <Text style={styles.messageText}>{item.text}</Text>
+            )}
             <Text style={styles.timeText}>
               {item.timestamp ? new Date(item.timestamp.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '...'}
             </Text>
@@ -100,14 +141,20 @@ export default function App() {
         contentContainerStyle={styles.chatList}
       />
 
-      {/* شريط الإدخال */}
       <View style={styles.bottomBar}>
         <View style={styles.inputWrapper}>
           <TouchableOpacity><Ionicons name="happy-outline" size={24} color="#8596a0" /></TouchableOpacity>
           <TextInput style={styles.input} placeholder="الرسالة" placeholderTextColor="#8596a0" value={message} onChangeText={setMessage} multiline />
           <TouchableOpacity><Ionicons name="attach" size={24} color="#8596a0" style={{transform: [{rotate: '45deg'}]}} /></TouchableOpacity>
         </View>
-        <TouchableOpacity onPress={message ? sendMessage : toggleRecording} style={[styles.actionBtn, isRecording && {backgroundColor: '#ff4444'}]}>
+        
+        {/* الزر الذكي: ضغطة واحدة للإرسال، ضغطة مطولة للتسجيل */}
+        <TouchableOpacity 
+          onLongPress={!message ? startRecording : null}
+          onPressOut={!message && isRecording ? stopRecording : null}
+          onPress={message ? sendMessage : null}
+          style={[styles.actionBtn, isRecording && {backgroundColor: '#ff4444'}]}
+        >
           <MaterialCommunityIcons name={message ? "send" : (isRecording ? "stop" : "microphone")} size={24} color="white" />
         </TouchableOpacity>
       </View>
@@ -128,6 +175,7 @@ const styles = StyleSheet.create({
   myBubble: { alignSelf: 'flex-end', backgroundColor: '#005c4b', borderTopRightRadius: 2 },
   otherBubble: { alignSelf: 'flex-start', backgroundColor: '#1f2c34', borderTopLeftRadius: 2 },
   messageText: { color: 'white', fontSize: 16 },
+  audioRow: { flexDirection: 'row', alignItems: 'center' },
   timeText: { color: '#8596a0', fontSize: 10, alignSelf: 'flex-end', marginTop: 4 },
   bottomBar: { flexDirection: 'row', padding: 8, alignItems: 'center' },
   inputWrapper: { flex: 1, flexDirection: 'row', backgroundColor: '#1f2c34', borderRadius: 25, alignItems: 'center', paddingHorizontal: 12, minHeight: 48 },
