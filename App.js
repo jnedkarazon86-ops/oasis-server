@@ -5,9 +5,9 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 // الاستيرادات الأساسية
 import ZegoUIKitPrebuiltCallService, { ZegoSendCallInvitationButton } from '@zegocloud/zego-uikit-prebuilt-call-rn';
 import * as ZegoUIKitSignalingPlugin from 'zego-uikit-signaling-plugin-rn';
-import { db } from './firebaseConfig'; 
+import { db, auth } from './firebaseConfig'; 
 import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot } from 'firebase/firestore';
-import { getAuth, createUserWithEmailAndPassword, sendEmailVerification, onAuthStateChanged, signInWithEmailAndPassword } from "firebase/auth";
+import { sendEmailVerification, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { Audio } from 'expo-av';
 
 export default function App() {
@@ -22,10 +22,11 @@ export default function App() {
   // منطق الصوت
   const [recording, setRecording] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [sound, setSound] = useState(null);
 
-  const auth = getAuth();
   const appID = 1773421291;
   const appSign = "48f1a163421aeb2dfdf57ac214f51362d8733ee19be92d3745a160a2521de2d7";
+  const SERVER_URL = 'https://oasis-server-e6sc.onrender.com';
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
@@ -36,8 +37,6 @@ export default function App() {
           ZegoUIKitPrebuiltCallService.init(appID, appSign, currentUser.uid, currentUser.email.split('@')[0], [ZegoUIKitSignalingPlugin]);
         } else {
           setIsWaitingVerify(true);
-          // تنبيه المستخدم بضرورة التفعيل
-          Alert.alert("تفعيل الحساب", "يرجى التحقق من بريدك الإلكتروني لتفعيل الحساب.");
         }
       } else {
         setUser(null);
@@ -56,26 +55,33 @@ export default function App() {
     }
   }, [user]);
 
-  // --- دالة التسجيل والتحقق ---
   const handleAuth = async () => {
     setAuthLoading(true);
     try {
-      // محاولة تسجيل الدخول أولاً، إذا لم ينجح نقوم بإنشاء حساب
       await signInWithEmailAndPassword(auth, email, password);
     } catch (error) {
-      if (error.code === 'auth/user-not-found') {
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
         try {
           const userCredential = await createUserWithEmailAndPassword(auth, email, password);
           await sendEmailVerification(userCredential.user);
           setIsWaitingVerify(true);
-          Alert.alert("تم إنشاء الحساب", "أرسلنا رابط التحقق لبريدك.");
+          Alert.alert("واحة أوايسس", "أرسلنا رابط تفعيل لبريدك الإلكتروني، يرجى تفعيله.");
         } catch (err) { Alert.alert("خطأ", err.message); }
       } else { Alert.alert("خطأ", error.message); }
     }
     setAuthLoading(false);
   };
 
-  // --- منطق إرسال الرسائل الصوتية ---
+  // --- تشغيل الرسالة الصوتية عند الضغط عليها ---
+  async function playVoiceMessage(url) {
+    try {
+      if (sound) await sound.unloadAsync();
+      const { sound: newSound } = await Audio.Sound.createAsync({ uri: `${SERVER_URL}/${url}` });
+      setSound(newSound);
+      await newSound.playAsync();
+    } catch (e) { Alert.alert("خطأ", "لا يمكن تشغيل الصوت حالياً"); }
+  }
+
   async function startRecording() {
     try {
       const permission = await Audio.requestPermissionsAsync();
@@ -90,12 +96,31 @@ export default function App() {
 
   async function stopRecording() {
     setIsRecording(false);
-    setRecording(undefined);
-    await recording.stopAndUnloadAsync();
-    const uri = recording.getURI(); 
-    console.log("تم حفظ الصوت في:", uri);
-    // هنا يمكنك إضافة كود رفع الملف إلى Firebase Storage أو خادم البايثون
-    Alert.alert("تم التسجيل", "جاهز للإرسال: " + uri);
+    try {
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+      setRecording(undefined);
+
+      const formData = new FormData();
+      formData.append('audio', { uri, type: 'audio/m4a', name: `voice_${Date.now()}.m4a` });
+      formData.append('user', user.email);
+
+      const response = await fetch(`${SERVER_URL}/api/upload-audio`, {
+        method: 'POST',
+        body: formData,
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      const result = await response.json();
+      if (result.status === 'success') {
+        await addDoc(collection(db, "messages"), {
+          audioUrl: result.url,
+          senderId: user.uid,
+          type: 'audio',
+          timestamp: serverTimestamp(),
+        });
+      }
+    } catch (err) { Alert.alert("عذراً", "فشل إرسال الصوت، تأكد من اتصال الخادم"); }
   }
 
   const sendMessage = async () => {
@@ -103,6 +128,7 @@ export default function App() {
       await addDoc(collection(db, "messages"), {
         text: message,
         senderId: user.uid,
+        type: 'text',
         timestamp: serverTimestamp(),
       });
       setMessage('');
@@ -115,21 +141,19 @@ export default function App() {
         <View style={styles.authCard}>
           <Ionicons name="leaf" size={70} color="#25D366" />
           <Text style={styles.authTitle}>واحة أوايسس</Text>
-          <Text style={styles.authSubtitle}>تواصل بخصوصية وأمان تام</Text>
-          
           {!isWaitingVerify ? (
             <>
-              <TextInput style={styles.input} placeholder="البريد الإلكتروني" value={email} onChangeText={setEmail} placeholderTextColor="#8596a0" autoCapitalize="none" />
-              <TextInput style={styles.input} placeholder="كلمة السر" value={password} onChangeText={setPassword} placeholderTextColor="#8596a0" secureTextEntry />
+              <TextInput style={styles.input} placeholder="البريد الإلكتروني" value={email} onChangeText={setEmail} placeholderTextColor="#8596a0" />
+              <TextInput style={styles.input} placeholder="كلمة السر" value={password} onChangeText={setPassword} secureTextEntry placeholderTextColor="#8596a0" />
               <TouchableOpacity style={styles.mainBtn} onPress={handleAuth}>
                 {authLoading ? <ActivityIndicator color="white" /> : <Text style={styles.btnText}>دخول / تسجيل</Text>}
               </TouchableOpacity>
             </>
           ) : (
-            <View style={styles.waitingContainer}>
+            <View style={{alignItems: 'center'}}>
               <ActivityIndicator size="large" color="#25D366" />
-              <Text style={styles.waitingText}>يرجى تفعيل البريد ثم أعد فتح التطبيق</Text>
-              <TouchableOpacity onPress={() => auth.signOut()}><Text style={{color: '#25D366', marginTop: 20}}>الرجوع للبداية</Text></TouchableOpacity>
+              <Text style={styles.waitingText}>يرجى تفعيل بريدك الإلكتروني ثم المحاولة مجدداً</Text>
+              <TouchableOpacity onPress={() => auth.signOut()}><Text style={{color: '#25D366', marginTop: 20}}>الرجوع</Text></TouchableOpacity>
             </View>
           )}
         </View>
@@ -143,13 +167,13 @@ export default function App() {
         <View style={styles.userInfo}>
             <View style={styles.avatar}><Text style={{color:'white'}}>O</Text></View>
             <View style={{marginLeft: 10, alignItems: 'flex-start'}}>
-                <Text style={styles.userName}>غرفة المحادثة العامة</Text>
+                <Text style={styles.userName}>غرفة واحة العامة</Text>
                 <Text style={styles.userStatus}>متصل الآن</Text>
             </View>
         </View>
         <View style={styles.headerIcons}>
-          <ZegoSendCallInvitationButton invitees={[{ userID: 'test_user', userName: 'Oasis User' }]} isVideoCall={true} resourceID={"oasis_video"} backgroundColor="#1f2c34" iconWidth={30} iconHeight={30} />
-          <ZegoSendCallInvitationButton invitees={[{ userID: 'test_user', userName: 'Oasis User' }]} isVideoCall={false} resourceID={"oasis_voice"} backgroundColor="#1f2c34" iconWidth={30} iconHeight={30} />
+          <ZegoSendCallInvitationButton invitees={[{ userID: 'global', userName: 'Oasis' }]} isVideoCall={true} resourceID={"oasis_video"} backgroundColor="#1f2c34" iconWidth={30} iconHeight={30} />
+          <ZegoSendCallInvitationButton invitees={[{ userID: 'global', userName: 'Oasis' }]} isVideoCall={false} resourceID={"oasis_voice"} backgroundColor="#1f2c34" iconWidth={30} iconHeight={30} />
         </View>
       </View>
 
@@ -158,14 +182,20 @@ export default function App() {
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
           <View style={[styles.bubble, item.senderId === user.uid ? styles.myBubble : styles.otherBubble]}>
-            <Text style={styles.messageText}>{item.text}</Text>
+            {item.type === 'audio' ? (
+              <TouchableOpacity onPress={() => playVoiceMessage(item.audioUrl)} style={{flexDirection: 'row', alignItems: 'center'}}>
+                <Ionicons name="play-circle" size={30} color="white" />
+                <Text style={styles.messageText}> رسالة صوتية</Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.messageText}>{item.text}</Text>
+            )}
           </View>
         )}
       />
 
       <View style={styles.inputContainer}>
         <View style={styles.inputWrapper}>
-          <TouchableOpacity><Ionicons name="happy-outline" size={24} color="#8596a0" /></TouchableOpacity>
           <TextInput style={styles.textInput} placeholder="مراسلة..." value={message} onChangeText={setMessage} placeholderTextColor="#8596a0" />
         </View>
         <TouchableOpacity 
@@ -183,8 +213,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0b141a' },
   authContainer: { flex: 1, backgroundColor: '#0b141a', justifyContent: 'center', alignItems: 'center', padding: 20 },
   authCard: { backgroundColor: '#1f2c34', width: '100%', borderRadius: 25, padding: 30, alignItems: 'center' },
-  authTitle: { color: 'white', fontSize: 26, fontWeight: 'bold', marginTop: 15 },
-  authSubtitle: { color: '#8596a0', fontSize: 14, marginBottom: 30 },
+  authTitle: { color: 'white', fontSize: 26, fontWeight: 'bold', marginVertical: 20 },
   input: { backgroundColor: '#2a3942', color: 'white', width: '100%', borderRadius: 12, padding: 15, marginBottom: 15, textAlign: 'right' },
   mainBtn: { backgroundColor: '#25D366', width: '100%', borderRadius: 12, padding: 16, alignItems: 'center' },
   btnText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
@@ -201,6 +230,6 @@ const styles = StyleSheet.create({
   messageText: { color: 'white', fontSize: 16, textAlign: 'right' },
   inputContainer: { flexDirection: 'row', padding: 10, alignItems: 'center' },
   inputWrapper: { flex: 1, backgroundColor: '#1f2c34', borderRadius: 25, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, height: 50 },
-  textInput: { flex: 1, color: 'white', marginHorizontal: 10, textAlign: 'right' },
+  textInput: { flex: 1, color: 'white', textAlign: 'right' },
   sendBtn: { width: 50, height: 50, backgroundColor: '#25D366', borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginLeft: 8 }
 });
