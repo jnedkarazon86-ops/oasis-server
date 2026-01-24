@@ -1,18 +1,21 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth"; // أضفنا هذا السطر
 
-// ضع معلوماتك الحقيقية هنا من إعدادات مشروع Firebase (Project Settings)
 const firebaseConfig = {
-  apiKey: "AIzaSy... ضع مفتاحك هنا",
+  apiKey: "AIzaSy...", // مفتاحك هنا
   authDomain: "oasis-app.firebaseapp.com",
   projectId: "oasis-app",
   storageBucket: "oasis-app.appspot.com",
-  messagingSenderId: "ضع الرقم هنا",
-  appId: "ضع الرقم هنا"
+  messagingSenderId: "...",
+  appId: "..."
 };
 
 // تشغيل Firebase
 const app = initializeApp(firebaseConfig);
 
-// تصدير قاعدة البيانات (Firestore) فقط لأننا نستخدمها للنصوص وروابط الصوت
+// تصدير قاعدة البيانات
 export const db = getFirestore(app);
+
+// تصدير نظام المصادقة (مهم جداً للتحقق بالإيميل)
+export const auth = getAuth(app); 
