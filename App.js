@@ -1,88 +1,107 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, TextInput, FlatList, Linking, Alert } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, TextInput, FlatList, Linking, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function App() {
   const [message, setMessage] = useState('');
-  const [chatMessages, setChatMessages] = useState([]);
+  const [chatMessages, setChatMessages] = useState([
+    { id: '1', text: 'أهلاً بك في أوايسس! جرب إرسال رسالة أو تسجيل صوت.', time: '10:00 م', sender: 'other' }
+  ]);
   const [isRecording, setIsRecording] = useState(false);
 
-  // 📞 وظيفة الاتصال الهاتفي
-  const makeCall = (type) => {
-    const phoneNumber = 'tel:0900000000'; // رقم افتراضي
-    Alert.alert('بدء اتصال', `هل تريد إجراء مكالمة ${type === 'video' ? 'فيديو' : 'صوتية'}؟`, [
-      { text: 'إلغاء', style: 'cancel' },
-      { text: 'اتصال', onPress: () => Linking.openURL(phoneNumber) }
-    ]);
+  // 📞 برمجة أزرار الاتصال (تفتح واجهة الهاتف الحقيقية)
+  const handleCall = (type) => {
+    const url = type === 'video' ? 'facetime://' : 'tel:0900000000';
+    Alert.alert(
+      type === 'video' ? 'مكالمة فيديو' : 'مكالمة صوتية',
+      'هل تريد الاتصال بهذا الصديق؟',
+      [
+        { text: 'إلغاء', style: 'cancel' },
+        { text: 'اتصال', onPress: () => Linking.openURL(url).catch(() => Alert.alert('خطأ', 'هذه الميزة تعمل على الهواتف الحقيقية فقط')) }
+      ]
+    );
   };
 
-  // ✉️ وظيفة إرسال الرسالة
+  // ✉️ برمجة إرسال الرسائل (تضيف الرسالة للقائمة فوراً)
   const sendMessage = () => {
     if (message.trim().length > 0) {
-      setChatMessages([...chatMessages, { id: Date.now().toString(), text: message, time: '10:00 م' }]);
-      setMessage(''); // تفريغ الحقل بعد الإرسال
+      const newMessage = {
+        id: Date.now().toString(),
+        text: message,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        sender: 'me'
+      };
+      setChatMessages([...chatMessages, newMessage]);
+      setMessage('');
     }
   };
 
-  // 🎙️ وظيفة تسجيل الصوت (واجهة تفاعلية)
+  // 🎙️ برمجة الميكروفون (تغيير الحالة للشكل النشط)
   const toggleRecording = () => {
     setIsRecording(!isRecording);
     if (!isRecording) {
-      // هنا يبدأ التسجيل الحقيقي مستقبلاً
+      // هنا سنربط مكتبة expo-av لاحقاً للتسجيل الحقيقي
+      console.log("بدء التسجيل...");
     } else {
-      Alert.alert("تم الحفظ", "تم تسجيل المقطع الصوتي بنجاح");
+      Alert.alert("تم تسجيل الصوت", "سيتم إرسال المقطع الصوتي فور ربط قاعدة البيانات.");
     }
   };
 
   return (
-    <View style={styles.container}>
-      {/* هيدر الدردشة مع أزرار الاتصال */}
-      <View style={styles.chatHeader}>
-        <View style={styles.userInfo}>
-          <Ionicons name="arrow-forward" size={24} color="white" />
-          <View style={styles.avatarSmall} />
-          <Text style={styles.userName}>صديقي</Text>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === "ios" ? "padding" : "height"} 
+      style={styles.container}
+    >
+      {/* هيدر المحادثة */}
+      <View style={styles.header}>
+        <View style={styles.headerRight}>
+          <TouchableOpacity><Ionicons name="arrow-forward" size={24} color="white" /></TouchableOpacity>
+          <View style={styles.avatar} />
+          <View>
+            <Text style={styles.userName}>صديقي</Text>
+            <Text style={styles.status}>متصل الآن</Text>
+          </View>
         </View>
         <View style={styles.headerIcons}>
-          <TouchableOpacity onPress={() => makeCall('video')} style={styles.iconSpacing}>
-            <Ionicons name="videocam" size={22} color="white" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => makeCall('voice')} style={styles.iconSpacing}>
-            <Ionicons name="call" size={20} color="white" />
-          </TouchableOpacity>
+          <TouchableOpacity onPress={() => handleCall('video')}><Ionicons name="videocam" size={24} color="white" style={styles.icon} /></TouchableOpacity>
+          <TouchableOpacity onPress={() => handleCall('voice')}><Ionicons name="call" size={20} color="white" style={styles.icon} /></TouchableOpacity>
+          <TouchableOpacity><Ionicons name="ellipsis-vertical" size={22} color="white" /></TouchableOpacity>
         </View>
       </View>
 
-      {/* منطقة الرسائل */}
+      {/* منطقة عرض الرسائل */}
       <FlatList 
         data={chatMessages}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <View style={styles.msgBubble}><Text style={styles.msgText}>{item.text}</Text></View>
+          <View style={[styles.bubble, item.sender === 'me' ? styles.myBubble : styles.otherBubble]}>
+            <Text style={styles.messageText}>{item.text}</Text>
+            <Text style={styles.timeText}>{item.time}</Text>
+          </View>
         )}
-        style={styles.chatArea}
+        contentContainerStyle={styles.chatList}
       />
 
-      {/* شريط الإدخال السفلي (رسائل + صوت) */}
-      <View style={styles.inputContainer}>
+      {/* شريط الإدخال السفلي الذكي */}
+      <View style={styles.bottomBar}>
         <View style={styles.inputWrapper}>
           <TouchableOpacity><Ionicons name="happy-outline" size={24} color="#8596a0" /></TouchableOpacity>
           <TextInput 
-            style={styles.textInput} 
+            style={styles.input} 
             placeholder="الرسالة" 
             placeholderTextColor="#8596a0"
             value={message}
             onChangeText={setMessage}
             multiline
           />
-          <TouchableOpacity style={styles.iconSpacing}><Ionicons name="attach" size={24} color="#8596a0" style={{transform: [{rotate: '45deg'}]}} /></TouchableOpacity>
+          <TouchableOpacity><Ionicons name="attach" size={24} color="#8596a0" style={styles.attachIcon} /></TouchableOpacity>
           {!message && <TouchableOpacity><Ionicons name="camera" size={24} color="#8596a0" /></TouchableOpacity>}
         </View>
 
-        {/* زر الإرسال أو الميكروفون الديناميكي */}
+        {/* زر الإرسال / الميكروفون الديناميكي */}
         <TouchableOpacity 
-          style={[styles.actionButton, isRecording && {backgroundColor: 'red'}]} 
           onPress={message ? sendMessage : toggleRecording}
+          style={[styles.actionBtn, isRecording && {backgroundColor: '#ff4444'}]}
         >
           {message ? (
             <MaterialCommunityIcons name="send" size={24} color="white" style={{transform: [{scaleX: -1}]}} />
@@ -91,23 +110,28 @@ export default function App() {
           )}
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0b141a' },
-  chatHeader: { height: 90, backgroundColor: '#1f2c34', flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', padding: 15 },
-  userInfo: { flexDirection: 'row', alignItems: 'center' },
-  avatarSmall: { width: 35, height: 35, borderRadius: 17.5, backgroundColor: '#3d4b55', marginHorizontal: 10 },
-  userName: { color: 'white', fontSize: 18, fontWeight: 'bold' },
-  headerIcons: { flexDirection: 'row', marginBottom: 5 },
-  iconSpacing: { marginLeft: 20 },
-  chatArea: { flex: 1, padding: 10 },
-  msgBubble: { alignSelf: 'flex-end', backgroundColor: '#005c4b', padding: 10, borderRadius: 10, marginBottom: 5, maxWidth: '80%' },
-  msgText: { color: 'white', fontSize: 16 },
-  inputContainer: { flexDirection: 'row', padding: 10, alignItems: 'center' },
-  inputWrapper: { flex: 1, flexDirection: 'row', backgroundColor: '#1f2c34', borderRadius: 25, paddingHorizontal: 15, alignItems: 'center', height: 45 },
-  textInput: { flex: 1, color: 'white', marginHorizontal: 10, fontSize: 16, textAlign: 'right' },
-  actionButton: { width: 45, height: 45, backgroundColor: '#25D366', borderRadius: 22.5, justifyContent: 'center', alignItems: 'center', marginLeft: 5 }
+  header: { height: 95, backgroundColor: '#1f2c34', flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', padding: 15 },
+  headerRight: { flexDirection: 'row', alignItems: 'center' },
+  avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#3d4b55', marginHorizontal: 10 },
+  userName: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+  status: { color: '#8596a0', fontSize: 12 },
+  headerIcons: { flexDirection: 'row', alignItems: 'center' },
+  icon: { marginRight: 20 },
+  chatList: { padding: 15 },
+  bubble: { padding: 10, borderRadius: 12, marginBottom: 8, maxWidth: '85%' },
+  myBubble: { alignSelf: 'flex-end', backgroundColor: '#005c4b', borderTopRightRadius: 2 },
+  otherBubble: { alignSelf: 'flex-start', backgroundColor: '#1f2c34', borderTopLeftRadius: 2 },
+  messageText: { color: 'white', fontSize: 16 },
+  timeText: { color: '#8596a0', fontSize: 10, alignSelf: 'flex-end', marginTop: 4 },
+  bottomBar: { flexDirection: 'row', padding: 8, alignItems: 'center' },
+  inputWrapper: { flex: 1, flexDirection: 'row', backgroundColor: '#1f2c34', borderRadius: 25, alignItems: 'center', paddingHorizontal: 12, minHeight: 48 },
+  input: { flex: 1, color: 'white', fontSize: 17, paddingHorizontal: 10, textAlign: 'right' },
+  attachIcon: { transform: [{rotate: '45deg'}], marginRight: 10 },
+  actionBtn: { width: 48, height: 48, backgroundColor: '#25D366', borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginLeft: 5 }
 });
