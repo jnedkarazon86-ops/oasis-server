@@ -7,54 +7,76 @@ import random
 import time
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'oasis_2026_secure'
-CORS(app) # السماح للموبايل بالاتصال بالسيرفر
+app.config['SECRET_KEY'] = 'oasis_2026_secure_key'
 
-# إعداد مجلد لرفع الأصوات
+# تفعيل CORS للسماح لتطبيق الموبايل بالاتصال
+CORS(app, resources={root: {"origins": "*"}})
+
+# إعداد مجلد تخزين الأصوات
 UPLOAD_FOLDER = 'assets/audio_messages'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
+
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# --- إعدادات الاتصال الحي ---
-# قمنا بإزالة إعدادات Mail لأننا سنعتمد على Firebase في التطبيق
+# إعداد SocketIO للاتصال اللحظي
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
-# السماح للتطبيق بتحميل ملفات الصوت من السيرفر
-@app.route('/assets/audio_messages/<filename>')
-def serve_audio(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+# --- المسارات (Routes) ---
 
 @app.route('/')
-def index():
-    return {"status": "online", "message": "Oasis Server is running with Firebase Auth"}
+def health_check():
+    """التأكد من أن السيرفر يعمل"""
+    return {
+        "status": "online",
+        "system": "Oasis Private Server",
+        "version": "2.0.0"
+    }
 
-# --- ميزة رفع الصوت (تستخدم في التطبيق لإرسال البصمات) ---
+@app.route('/assets/audio_messages/<filename>')
+def serve_audio(filename):
+    """رابط مباشر لتشغيل ملفات الصوت في التطبيق"""
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
 @app.route('/api/upload-audio', methods=['POST'])
 def upload_audio():
-    if 'audio' not in request.files:
-        return jsonify({"error": "No audio file"}), 400
-    
-    file = request.files['audio']
-    if file.filename == '':
-        return jsonify({"error": "No selected file"}), 400
-    
-    filename = secure_filename(f"voice_{int(time.time())}_{random.randint(100,999)}.m4a")
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file.save(filepath)
-    
-    # تحويل المسار المحلي لرابط URL كامل
-    full_url = f"{request.host_url}{filepath}"
-    
-    # إشعار جميع المستخدمين بالصوت الجديد عبر Socket
-    socketio.emit('new_voice_message', {"url": full_url, "sender": request.form.get('user')})
-    
-    return jsonify({"status": "success", "url": full_url})
+    """استقبال البصمة الصوتية من الموبايل وحفظها"""
+    try:
+        if 'audio' not in request.files:
+            return jsonify({"error": "No audio file"}), 400
+        
+        file = request.files['audio']
+        if file.filename == '':
+            return jsonify({"error": "No selected file"}), 400
 
-# --- نظام الحالات (Status) ---
+        # إنشاء اسم ملف فريد وآمن
+        timestamp = int(time.time())
+        random_suffix = random.randint(1000, 9999)
+        filename = secure_filename(f"voice_{timestamp}_{random_suffix}.m4a")
+        
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+
+        # إرجاع الرابط النسبي ليقوم Firebase بتخزينه
+        # سيقوم التطبيق بدمج SERVER_URL مع هذا الرابط للتشغيل
+        relative_url = f"assets/audio_messages/{filename}"
+        
+        return jsonify({
+            "status": "success",
+            "url": relative_url,
+            "full_path": f"{request.host_url}{relative_url}"
+        }), 201
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/upload-status', methods=['POST'])
 def upload_status():
+    """نظام الحالات (Status)"""
     data = request.json
+    if not data:
+        return jsonify({"error": "No data"}), 400
+        
     new_status = {
         "id": random.randint(1000, 9999),
         "user_email": data.get('email'),
@@ -64,12 +86,24 @@ def upload_status():
     }
     return jsonify({"status": "success", "data": new_status})
 
-# --- استقبال وإرسال الرسائل الحية ---
+# --- أحداث Socket.io (للتطوير المستقبلي) ---
+
+@socketio.on('connect')
+def handle_connect():
+    print(f"Client connected: {request.sid}")
+
 @socketio.on('new_message')
 def handle_msg(data):
+    """إرسال إشعار لحظي (اختياري بجانب Firebase)"""
     emit('receive_message', data, broadcast=True)
 
+@socketio.on('disconnect')
+def handle_disconnect():
+    print(f"Client disconnected: {request.sid}")
+
+# --- تشغيل السيرفر ---
+
 if __name__ == "__main__":
-    # هذا السطر ضروري لعمل السيرفر على Render
+    # تشغيل متوافق مع بيئة Render و Heroku
     port = int(os.environ.get("PORT", 5000))
     socketio.run(app, host='0.0.0.0', port=port)
