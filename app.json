@@ -23,6 +23,11 @@
       "package": "com.oasis.app2026",
       "googleServicesFile": "./google-services.json",
       "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "MODIFY_AUDIO_SETTINGS",
+        "ACCESS_WIFI_STATE",
+        "ACCESS_NETWORK_STATE",
         "USE_FULL_SCREEN_INTENT",
         "SCHEDULE_EXACT_ALARM",
         "VIBRATE",
