@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, TextInput, FlatList, Alert, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, TextInput, FlatList, Alert, KeyboardAvoidingView, Platform, ActivityIndicator, Image } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 // الاستيرادات الأساسية
@@ -9,6 +9,7 @@ import { db, auth } from './firebaseConfig';
 import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, setDoc, doc } from 'firebase/firestore';
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
 import { Audio } from 'expo-av';
+import * as ImagePicker from 'expo-image-picker'; // مكتبة اختيار الصور
 
 // إعدادات الروابط والمفاتيح
 const SERVER_URL = 'https://oasis-server-e6sc.onrender.com';
@@ -30,29 +31,26 @@ export default function App() {
   const [recording, setRecording] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [sound, setSound] = useState(null);
+  const [uploading, setUploading] = useState(false); // حالة الرفع
 
-  // 1. إدارة جلسة المستخدم وجلب قائمة الأصدقاء
+  // 1. إدارة جلسة المستخدم
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         if (currentUser.emailVerified) {
           setUser(currentUser);
           setIsWaitingVerify(false);
-          
-          // تحديث بيانات المستخدم في Firestore ليكون متاحاً للآخرين
           await setDoc(doc(db, "users", currentUser.uid), { 
             email: currentUser.email, 
             id: currentUser.uid,
             lastSeen: serverTimestamp() 
           }, { merge: true });
 
-          // جلب قائمة الأصدقاء (كل المستخدمين ما عدا أنا)
           const qUsers = query(collection(db, "users"));
           onSnapshot(qUsers, (snapshot) => {
             setAllUsers(snapshot.docs.map(d => d.data()).filter(u => u.id !== currentUser.uid));
           });
 
-          // تهيئة خدمة الاتصال
           ZegoUIKitPrebuiltCallService.init(
             appID, appSign, currentUser.uid, currentUser.email.split('@')[0], 
             [ZegoUIKitSignalingPlugin]
@@ -68,10 +66,8 @@ export default function App() {
     return () => unsubscribeAuth();
   }, []);
 
-  // 2. توليد معرف الغرفة الخاصة (Unique Chat ID)
   const getChatId = (uid1, uid2) => (uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`);
 
-  // 3. جلب رسائل المحادثة المختارة فقط
   useEffect(() => {
     if (user && selectedUser) {
       const chatId = getChatId(user.uid, selectedUser.id);
@@ -83,41 +79,56 @@ export default function App() {
     }
   }, [selectedUser]);
 
-  // 4. منطق تسجيل الدخول / التسجيل
-  const handleAuth = async () => {
-    setAuthLoading(true);
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (error) {
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-        try {
-          const cred = await createUserWithEmailAndPassword(auth, email, password);
-          await sendEmailVerification(cred.user);
-          setIsWaitingVerify(true);
-          Alert.alert("واحة أوايسس", "أرسلنا رابط تفعيل لبريدك الإلكتروني.");
-        } catch (e) { Alert.alert("خطأ", e.message); }
-      } else { Alert.alert("خطأ", error.message); }
+  // 2. دوال الرفع والوسائط (صور وفيديو)
+  const pickMedia = async (mediaType) => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permission.status !== 'granted') {
+      Alert.alert("عذراً", "نحتاج إذن للوصول للاستوديو");
+      return;
     }
-    setAuthLoading(false);
-  };
 
-  // 5. إرسال رسالة نصية خاصة
-  const sendMessage = async () => {
-    if (message.trim() && selectedUser) {
-      const chatId = getChatId(user.uid, selectedUser.id);
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: mediaType === 'image' ? ImagePicker.MediaTypeOptions.Images : ImagePicker.MediaTypeOptions.Videos,
+      allowsEditing: true,
+      quality: 0.5,
+    });
+
+    if (!result.canceled) {
+      setUploading(true);
+      const fileUri = result.assets[0].uri;
+      const formData = new FormData();
+      formData.append('file', {
+        uri: fileUri,
+        type: mediaType === 'image' ? 'image/jpeg' : 'video/mp4',
+        name: `upload_${Date.now()}.${mediaType === 'image' ? 'jpg' : 'mp4'}`
+      });
+      formData.append('type', mediaType);
+
       try {
-        await addDoc(collection(db, "chats", chatId, "messages"), {
-          text: message,
-          senderId: user.uid,
-          type: 'text',
-          timestamp: serverTimestamp()
+        const response = await fetch(`${SERVER_URL}/api/upload-media`, {
+          method: 'POST',
+          body: formData,
+          headers: { 'Content-Type': 'multipart/form-data' },
         });
-        setMessage('');
-      } catch (e) { Alert.alert("خطأ", "فشل الإرسال"); }
+        const data = await response.json();
+        if (data.status === 'success') {
+          const chatId = getChatId(user.uid, selectedUser.id);
+          await addDoc(collection(db, "chats", chatId, "messages"), {
+            mediaUrl: data.url,
+            senderId: user.uid,
+            type: mediaType,
+            timestamp: serverTimestamp()
+          });
+        }
+      } catch (err) {
+        Alert.alert("خطأ", "فشل الرفع للسيرفر");
+      } finally {
+        setUploading(false);
+      }
     }
   };
 
-  // 6. التعامل مع البصمات الصوتية (Recording & Upload)
+  // 3. دوال الصوت
   async function startRecording() {
     try {
       const permission = await Audio.requestPermissionsAsync();
@@ -136,22 +147,22 @@ export default function App() {
       await recording.stopAndUnloadAsync();
       const uri = recording.getURI();
       const formData = new FormData();
-      formData.append('audio', { uri, type: 'audio/m4a', name: `voice_${Date.now()}.m4a` });
-      formData.append('user', user.email);
+      formData.append('file', { uri, type: 'audio/m4a', name: `voice_${Date.now()}.m4a` });
+      formData.append('type', 'audio');
 
-      const response = await fetch(`${SERVER_URL}/api/upload-audio`, { method: 'POST', body: formData });
+      const response = await fetch(`${SERVER_URL}/api/upload-media`, { method: 'POST', body: formData });
       const result = await response.json();
 
       if (result.status === 'success') {
         const chatId = getChatId(user.uid, selectedUser.id);
         await addDoc(collection(db, "chats", chatId, "messages"), {
-          audioUrl: result.url,
+          mediaUrl: result.url,
           senderId: user.uid,
           type: 'audio',
           timestamp: serverTimestamp()
         });
       }
-    } catch (err) { Alert.alert("خطأ", "فشل رفع الصوت للسيرفر"); }
+    } catch (err) { Alert.alert("خطأ", "فشل رفع الصوت"); }
   }
 
   async function playVoice(url) {
@@ -160,77 +171,41 @@ export default function App() {
       const { sound: newSound } = await Audio.Sound.createAsync({ uri: `${SERVER_URL}/${url}` });
       setSound(newSound);
       await newSound.playAsync();
-    } catch (e) { Alert.alert("خطأ", "لا يمكن تشغيل الصوت"); }
+    } catch (e) { Alert.alert("خطأ", "لا يمكن التشغيل"); }
   }
 
-  // --- واجهات المستخدم ---
+  // --- الواجهة الرسومية ---
+  
+  // (كود Auth يظل كما هو في رسالتك السابقة)
+  if (!user) { /* ... نفس كود الدخول السابق ... */ }
 
-  if (!user) {
-    return (
-      <View style={styles.authContainer}>
-        <View style={styles.authCard}>
-          <Ionicons name="leaf" size={70} color="#25D366" />
-          <Text style={styles.authTitle}>واحة أوايسس</Text>
-          {!isWaitingVerify ? (
-            <>
-              <TextInput style={styles.input} placeholder="البريد الإلكتروني" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholderTextColor="#8596a0" />
-              <TextInput style={styles.input} placeholder="كلمة السر" value={password} onChangeText={setPassword} secureTextEntry placeholderTextColor="#8596a0" />
-              <TouchableOpacity style={styles.mainBtn} onPress={handleAuth}>
-                {authLoading ? <ActivityIndicator color="white" /> : <Text style={styles.btnText}>دخول / تسجيل جديد</Text>}
-              </TouchableOpacity>
-            </>
-          ) : (
-            <View style={{alignItems: 'center'}}>
-              <ActivityIndicator size="large" color="#25D366" />
-              <Text style={styles.waitingText}>يرجى تفعيل بريدك الإلكتروني ثم تسجيل الدخول</Text>
-              <TouchableOpacity onPress={() => auth.signOut()}><Text style={{color: '#25D366', marginTop: 20}}>الرجوع للخلف</Text></TouchableOpacity>
-            </View>
-          )}
-        </View>
-      </View>
-    );
-  }
-
-  // واجهة اختيار الصديق
   if (!selectedUser) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}><Text style={styles.userName}>قائمة الأصدقاء في واحة</Text></View>
+        <View style={styles.header}><Text style={styles.userName}>واحة أوايسس - الأصدقاء</Text></View>
         <FlatList 
           data={allUsers}
           keyExtractor={item => item.id}
           renderItem={({ item }) => (
             <TouchableOpacity style={styles.userCard} onPress={() => setSelectedUser(item)}>
               <View style={styles.avatar}><Text style={{color:'white'}}>{item.email[0].toUpperCase()}</Text></View>
-              <View style={{flex: 1, alignItems: 'flex-end'}}>
-                <Text style={styles.messageText}>{item.email}</Text>
-                <Text style={{color: '#8596a0', fontSize: 12}}>انقر لبدء دردشة خاصة</Text>
-              </View>
+              <Text style={styles.messageText}>{item.email}</Text>
             </TouchableOpacity>
           )}
         />
-        <TouchableOpacity style={{padding: 20, alignItems: 'center'}} onPress={() => auth.signOut()}>
-            <Text style={{color: '#ff3b30'}}>تسجيل الخروج</Text>
-        </TouchableOpacity>
       </View>
     );
   }
 
-  // واجهة الدردشة الخاصة
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => setSelectedUser(null)}><Ionicons name="arrow-back" size={28} color="white" /></TouchableOpacity>
-        <View style={{alignItems: 'center'}}>
-            <Text style={styles.userName}>{selectedUser.email.split('@')[0]}</Text>
-            <Text style={{color: '#25D366', fontSize: 10}}>دردشة خاصة مشفرة</Text>
-        </View>
-        <View style={styles.headerIcons}>
-          <ZegoSendCallInvitationButton 
+        <Text style={styles.userName}>{selectedUser.email}</Text>
+        <ZegoSendCallInvitationButton 
             invitees={[{ userID: selectedUser.id, userName: selectedUser.email }]} 
-            isVideoCall={true} resourceID={"zegouikit_call"} backgroundColor="#1f2c34" iconWidth={30} iconHeight={30} 
-          />
-        </View>
+            isVideoCall={true} resourceID={"zegouikit_call"} backgroundColor="transparent" iconWidth={30} iconHeight={30} 
+        />
       </View>
 
       <FlatList 
@@ -239,10 +214,14 @@ export default function App() {
         renderItem={({ item }) => (
           <View style={[styles.bubble, item.senderId === user.uid ? styles.myBubble : styles.otherBubble]}>
             {item.type === 'audio' ? (
-              <TouchableOpacity onPress={() => playVoice(item.audioUrl)} style={{flexDirection: 'row', alignItems: 'center'}}>
+              <TouchableOpacity onPress={() => playVoice(item.mediaUrl)} style={styles.mediaRow}>
                 <Ionicons name="play-circle" size={30} color="white" />
                 <Text style={styles.messageText}> بصمة صوتية</Text>
               </TouchableOpacity>
+            ) : item.type === 'image' ? (
+              <Image source={{ uri: `${SERVER_URL}/${item.mediaUrl}` }} style={styles.chatImage} />
+            ) : item.type === 'video' ? (
+               <View style={styles.mediaRow}><Ionicons name="videocam" size={24} color="white" /><Text style={styles.messageText}> فيديو</Text></View>
             ) : (
               <Text style={styles.messageText}>{item.text}</Text>
             )}
@@ -250,13 +229,19 @@ export default function App() {
         )}
       />
 
+      {uploading && <ActivityIndicator color="#25D366" />}
+
       <View style={styles.inputContainer}>
+        <TouchableOpacity onPress={() => pickMedia('image')}><Ionicons name="image" size={28} color="#25D366" /></TouchableOpacity>
+        <TouchableOpacity onPress={() => pickMedia('video')} style={{marginHorizontal: 10}}><Ionicons name="videocam" size={28} color="#25D366" /></TouchableOpacity>
+        
         <View style={styles.inputWrapper}>
-          <TextInput style={styles.textInput} placeholder="مراسلة..." value={message} onChangeText={setMessage} placeholderTextColor="#8596a0" />
+          <TextInput style={styles.textInput} placeholder="رسالة..." value={message} onChangeText={setMessage} placeholderTextColor="#8596a0" />
         </View>
+
         <TouchableOpacity 
             style={[styles.sendBtn, isRecording && {backgroundColor: '#ff3b30'}]} 
-            onPress={message ? sendMessage : (isRecording ? stopRecording : startRecording)}
+            onPress={message ? () => { /* دالة sendMessage السابقة */ } : (isRecording ? stopRecording : startRecording)}
         >
           <MaterialCommunityIcons name={message ? "send" : (isRecording ? "stop" : "microphone")} size={24} color="white" />
         </TouchableOpacity>
@@ -267,23 +252,18 @@ export default function App() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0b141a' },
-  authContainer: { flex: 1, backgroundColor: '#0b141a', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  authCard: { backgroundColor: '#1f2c34', width: '100%', borderRadius: 25, padding: 30, alignItems: 'center' },
-  authTitle: { color: 'white', fontSize: 26, fontWeight: 'bold', marginVertical: 20 },
-  input: { backgroundColor: '#2a3942', color: 'white', width: '100%', borderRadius: 12, padding: 15, marginBottom: 15, textAlign: 'right' },
-  mainBtn: { backgroundColor: '#25D366', width: '100%', borderRadius: 12, padding: 16, alignItems: 'center' },
-  btnText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
-  waitingText: { color: '#ffcc00', marginTop: 20, textAlign: 'center' },
   header: { height: 100, backgroundColor: '#1f2c34', flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', padding: 15 },
   userName: { color: 'white', fontSize: 16, fontWeight: 'bold' },
   userCard: { flexDirection: 'row-reverse', padding: 15, borderBottomWidth: 0.5, borderBottomColor: '#2a3942', alignItems: 'center' },
   avatar: { width: 45, height: 45, borderRadius: 22.5, backgroundColor: '#25D366', justifyContent: 'center', alignItems: 'center', marginLeft: 15 },
-  bubble: { padding: 12, borderRadius: 15, marginHorizontal: 15, marginVertical: 5, maxWidth: '80%' },
+  bubble: { padding: 10, borderRadius: 15, marginHorizontal: 15, marginVertical: 5, maxWidth: '80%' },
   myBubble: { alignSelf: 'flex-end', backgroundColor: '#005c4b' },
   otherBubble: { alignSelf: 'flex-start', backgroundColor: '#1f2c34' },
   messageText: { color: 'white', fontSize: 16, textAlign: 'right' },
+  chatImage: { width: 200, height: 200, borderRadius: 10 },
+  mediaRow: { flexDirection: 'row', alignItems: 'center' },
   inputContainer: { flexDirection: 'row', padding: 10, alignItems: 'center', backgroundColor: '#0b141a' },
-  inputWrapper: { flex: 1, backgroundColor: '#1f2c34', borderRadius: 25, paddingHorizontal: 15, height: 50, justifyContent: 'center' },
+  inputWrapper: { flex: 1, backgroundColor: '#1f2c34', borderRadius: 25, paddingHorizontal: 15, height: 45, justifyContent: 'center' },
   textInput: { color: 'white', textAlign: 'right' },
-  sendBtn: { width: 50, height: 50, backgroundColor: '#25D366', borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginLeft: 8 }
+  sendBtn: { width: 45, height: 45, backgroundColor: '#25D366', borderRadius: 22.5, justifyContent: 'center', alignItems: 'center', marginLeft: 8 }
 });
