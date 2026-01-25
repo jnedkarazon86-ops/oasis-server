@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_socketio import SocketIO, emit
-from flask_mail import Mail, Message
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import os
@@ -17,16 +16,8 @@ if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# --- 1. إعدادات الإيميل ---
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'your-email@gmail.com' # بريدك هنا
-app.config['MAIL_PASSWORD'] = 'your-app-password' # كلمة سر التطبيقات من جوجل
-mail = Mail(app)
-otp_storage = {}
-
-# --- 2. إعدادات الاتصال الحي ---
+# --- إعدادات الاتصال الحي ---
+# قمنا بإزالة إعدادات Mail لأننا سنعتمد على Firebase في التطبيق
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
 # السماح للتطبيق بتحميل ملفات الصوت من السيرفر
@@ -36,9 +27,9 @@ def serve_audio(filename):
 
 @app.route('/')
 def index():
-    return {"status": "online", "message": "Oasis Server is running"}
+    return {"status": "online", "message": "Oasis Server is running with Firebase Auth"}
 
-# --- 3. ميزة رفع الصوت (تم تصحيح الرابط ليعمل على الموبايل) ---
+# --- ميزة رفع الصوت (تستخدم في التطبيق لإرسال البصمات) ---
 @app.route('/api/upload-audio', methods=['POST'])
 def upload_audio():
     if 'audio' not in request.files:
@@ -52,14 +43,15 @@ def upload_audio():
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(filepath)
     
-    # تحويل المسار المحلي لرابط URL كامل يمكن للموبايل تشغيله
+    # تحويل المسار المحلي لرابط URL كامل
     full_url = f"{request.host_url}{filepath}"
     
+    # إشعار جميع المستخدمين بالصوت الجديد عبر Socket
     socketio.emit('new_voice_message', {"url": full_url, "sender": request.form.get('user')})
     
     return jsonify({"status": "success", "url": full_url})
 
-# --- 4. نظام الحالات والتحقق ---
+# --- نظام الحالات (Status) ---
 @app.route('/api/upload-status', methods=['POST'])
 def upload_status():
     data = request.json
@@ -72,23 +64,12 @@ def upload_status():
     }
     return jsonify({"status": "success", "data": new_status})
 
-@app.route('/api/verify-email', methods=['POST'])
-def send_verification():
-    email = request.json.get('email')
-    code = str(random.randint(100000, 999999))
-    otp_storage[email] = code
-    try:
-        msg = Message('كود التحقق من واحة (Oasis)', sender=app.config['MAIL_USERNAME'], recipients=[email])
-        msg.body = f'كود التحقق الخاص بك هو: {code}'
-        mail.send(msg)
-        return jsonify({"status": "sent"})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
+# --- استقبال وإرسال الرسائل الحية ---
 @socketio.on('new_message')
 def handle_msg(data):
     emit('receive_message', data, broadcast=True)
 
 if __name__ == "__main__":
+    # هذا السطر ضروري لعمل السيرفر على Render
     port = int(os.environ.get("PORT", 5000))
     socketio.run(app, host='0.0.0.0', port=port)
