@@ -19,14 +19,16 @@ export default function App() {
   const [message, setMessage] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
   
+  // المتغير الذكي لتحديد الشخص المستهدف بالاتصال
+  const [selectedUser, setSelectedUser] = useState({ userID: 'global', userName: 'Oasis' });
+
   // منطق الصوت
   const [recording, setRecording] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [sound, setSound] = useState(null);
 
-  // البيانات الخاصة بمشروعك (مستخرجة من صورك)
-  const appID = 1773421291; //
-  const appSign = "48f1a163421aeb2dfdf57ac214f51362d8733ee19be92d3745a160a2521de2d7"; //
+  const appID = 1773421291; 
+  const appSign = "48f1a163421aeb2dfdf57ac214f51362d8733ee19be92d3745a160a2521de2d7"; 
   const SERVER_URL = 'https://oasis-server-e6sc.onrender.com';
 
   useEffect(() => {
@@ -36,7 +38,6 @@ export default function App() {
           setUser(currentUser);
           setIsWaitingVerify(false);
           
-          // إعداد خدمة المكالمات مع تفعيل الرنين في الخلفية
           ZegoUIKitPrebuiltCallService.init(
             appID, 
             appSign, 
@@ -45,10 +46,9 @@ export default function App() {
             [ZegoUIKitSignalingPlugin],
             {
               ringtoneConfig: {
-                incomingCallRingtone: 'ringtone.mp3', // تأكد من وضع الملف في مجلد assets
+                incomingCallRingtone: 'ringtone.mp3',
                 outgoingCallRingtone: 'ringtone.mp3',
               },
-              // تفعيل ميزات الأندرويد للرنين والتطبيق مغلق
               notifyWhenAppRunningInBackgroundOrQuit: true,
               isAndroidIndependentProcess: true,
               androidNotificationConfig: {
@@ -72,7 +72,19 @@ export default function App() {
     if (user) {
       const q = query(collection(db, "messages"), orderBy("timestamp", "asc"));
       const unsubscribeChat = onSnapshot(q, (snapshot) => {
-        setChatMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setChatMessages(messages);
+
+        // الميزة الذكية: إذا وصلت رسالة من شخص آخر، اجعل أزرار الاتصال موجهة له
+        if (messages.length > 0) {
+          const lastMsg = messages[messages.length - 1];
+          if (lastMsg.senderId !== user.uid) {
+            setSelectedUser({
+              userID: lastMsg.senderId,
+              userName: "صديق واحة"
+            });
+          }
+        }
       });
       return () => unsubscribeChat();
     }
@@ -190,13 +202,12 @@ export default function App() {
             <View style={styles.avatar}><Text style={{color:'white'}}>O</Text></View>
             <View style={{marginLeft: 10, alignItems: 'flex-start'}}>
                 <Text style={styles.userName}>غرفة واحة العامة</Text>
-                <Text style={styles.userStatus}>متصل الآن</Text>
+                <Text style={styles.userStatus}>متصل الآن بـ {selectedUser.userName}</Text>
             </View>
         </View>
         <View style={styles.headerIcons}>
-          {/* تم تعديل الـ resourceID ليتوافق مع الملف المرفوع في ZegoCloud */}
           <ZegoSendCallInvitationButton 
-            invitees={[{ userID: 'global', userName: 'Oasis' }]} 
+            invitees={[{ userID: selectedUser.userID, userName: selectedUser.userName }]} 
             isVideoCall={true} 
             resourceID={"zegouikit_call"} 
             backgroundColor="#1f2c34" 
@@ -204,7 +215,7 @@ export default function App() {
             iconHeight={30} 
           />
           <ZegoSendCallInvitationButton 
-            invitees={[{ userID: 'global', userName: 'Oasis' }]} 
+            invitees={[{ userID: selectedUser.userID, userName: selectedUser.userName }]} 
             isVideoCall={false} 
             resourceID={"zegouikit_call"} 
             backgroundColor="#1f2c34" 
