@@ -1,6 +1,7 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_socketio import SocketIO, emit
 from flask_mail import Mail, Message
+from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import os
 import random
@@ -8,6 +9,7 @@ import time
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'oasis_2026_secure'
+CORS(app) # السماح للموبايل بالاتصال بالسيرفر
 
 # إعداد مجلد لرفع الأصوات
 UPLOAD_FOLDER = 'assets/audio_messages'
@@ -19,24 +21,24 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-# ملاحظة: ضع إيميلك وكلمة سر التطبيقات هنا
-app.config['MAIL_USERNAME'] = 'your-email@gmail.com'
-app.config['MAIL_PASSWORD'] = 'your-app-password'
+app.config['MAIL_USERNAME'] = 'your-email@gmail.com' # بريدك هنا
+app.config['MAIL_PASSWORD'] = 'your-app-password' # كلمة سر التطبيقات من جوجل
 mail = Mail(app)
 otp_storage = {}
 
-# --- 2. الإعلانات والحالات ---
-ADSTERRA_DIRECT_LINK = "https://www.effectivegatecpm.com/pv5wwvpt?key=d089e046a8ec90d9b2b95e7b32944807"
-statuses = [] 
-
-# --- 3. إعدادات الاتصال الحي ---
+# --- 2. إعدادات الاتصال الحي ---
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+
+# السماح للتطبيق بتحميل ملفات الصوت من السيرفر
+@app.route('/assets/audio_messages/<filename>')
+def serve_audio(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/')
 def index():
-    return {"status": "online", "message": "Oasis Backend v2.0 is running"}
+    return {"status": "online", "message": "Oasis Server is running"}
 
-# --- 4. ميزة إرسال الصوت الجديدة ---
+# --- 3. ميزة رفع الصوت (تم تصحيح الرابط ليعمل على الموبايل) ---
 @app.route('/api/upload-audio', methods=['POST'])
 def upload_audio():
     if 'audio' not in request.files:
@@ -50,12 +52,14 @@ def upload_audio():
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(filepath)
     
-    # هنا نرسل إشارة عبر Socket لجميع المستخدمين بوجود رسالة صوتية جديدة
-    socketio.emit('new_voice_message', {"url": filepath, "sender": request.form.get('user')})
+    # تحويل المسار المحلي لرابط URL كامل يمكن للموبايل تشغيله
+    full_url = f"{request.host_url}{filepath}"
     
-    return jsonify({"status": "success", "url": filepath})
+    socketio.emit('new_voice_message', {"url": full_url, "sender": request.form.get('user')})
+    
+    return jsonify({"status": "success", "url": full_url})
 
-# --- 5. نظام الحالات ---
+# --- 4. نظام الحالات والتحقق ---
 @app.route('/api/upload-status', methods=['POST'])
 def upload_status():
     data = request.json
@@ -66,18 +70,8 @@ def upload_status():
         "timestamp": time.time(),
         "type": data.get('type', 'text')
     }
-    statuses.append(new_status)
-    return jsonify({"status": "success"})
+    return jsonify({"status": "success", "data": new_status})
 
-@app.route('/api/get-statuses', methods=['GET'])
-def get_statuses():
-    current_time = time.time()
-    global statuses
-    # حذف الحالات القديمة (أكبر من 24 ساعة)
-    statuses = [s for s in statuses if current_time - s['timestamp'] < 86400]
-    return jsonify(statuses)
-
-# --- 6. نظام التحقق والمكالمات ---
 @app.route('/api/verify-email', methods=['POST'])
 def send_verification():
     email = request.json.get('email')
