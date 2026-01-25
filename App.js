@@ -19,7 +19,7 @@ export default function App() {
   const [message, setMessage] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
   
-  // المتغير الذكي لتحديد الشخص المستهدف بالاتصال
+  // المتغير الذكي لتحديد الشخص المستهدف بالاتصال (مفعل الآن)
   const [selectedUser, setSelectedUser] = useState({ userID: 'global', userName: 'Oasis' });
 
   // منطق الصوت
@@ -39,22 +39,13 @@ export default function App() {
           setIsWaitingVerify(false);
           
           ZegoUIKitPrebuiltCallService.init(
-            appID, 
-            appSign, 
-            currentUser.uid, 
-            currentUser.email.split('@')[0], 
+            appID, appSign, currentUser.uid, currentUser.email.split('@')[0], 
             [ZegoUIKitSignalingPlugin],
             {
-              ringtoneConfig: {
-                incomingCallRingtone: 'ringtone.mp3',
-                outgoingCallRingtone: 'ringtone.mp3',
-              },
+              ringtoneConfig: { incomingCallRingtone: 'ringtone.mp3', outgoingCallRingtone: 'ringtone.mp3' },
               notifyWhenAppRunningInBackgroundOrQuit: true,
               isAndroidIndependentProcess: true,
-              androidNotificationConfig: {
-                channelID: "ZegoCall",
-                channelName: "ZegoCall",
-              },
+              androidNotificationConfig: { channelID: "ZegoCall", channelName: "ZegoCall" },
             }
           );
         } else {
@@ -75,14 +66,11 @@ export default function App() {
         const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setChatMessages(messages);
 
-        // الميزة الذكية: إذا وصلت رسالة من شخص آخر، اجعل أزرار الاتصال موجهة له
+        // تحديث المتغير الذكي عند وصول رسالة جديدة
         if (messages.length > 0) {
           const lastMsg = messages[messages.length - 1];
           if (lastMsg.senderId !== user.uid) {
-            setSelectedUser({
-              userID: lastMsg.senderId,
-              userName: "صديق واحة"
-            });
+            setSelectedUser({ userID: lastMsg.senderId, userName: "صديق واحة" });
           }
         }
       });
@@ -100,7 +88,7 @@ export default function App() {
           const userCredential = await createUserWithEmailAndPassword(auth, email, password);
           await sendEmailVerification(userCredential.user);
           setIsWaitingVerify(true);
-          Alert.alert("واحة أوايسس", "أرسلنا رابط تفعيل لبريدك الإلكتروني، يرجى تفعيله.");
+          Alert.alert("واحة أوايسس", "أرسلنا رابط تفعيل لبريدك الإلكتروني.");
         } catch (err) { Alert.alert("خطأ", err.message); }
       } else { Alert.alert("خطأ", error.message); }
     }
@@ -113,7 +101,7 @@ export default function App() {
       const { sound: newSound } = await Audio.Sound.createAsync({ uri: `${SERVER_URL}/${url}` });
       setSound(newSound);
       await newSound.playAsync();
-    } catch (e) { Alert.alert("خطأ", "لا يمكن تشغيل الصوت حالياً"); }
+    } catch (e) { Alert.alert("خطأ", "لا يمكن تشغيل الصوت"); }
   }
 
   async function startRecording() {
@@ -125,7 +113,7 @@ export default function App() {
         setRecording(recording);
         setIsRecording(true);
       }
-    } catch (err) { Alert.alert("فشل بدء التسجيل", err.message); }
+    } catch (err) { Alert.alert("فشل التسجيل", err.message); }
   }
 
   async function stopRecording() {
@@ -134,37 +122,20 @@ export default function App() {
       await recording.stopAndUnloadAsync();
       const uri = recording.getURI();
       setRecording(undefined);
-
       const formData = new FormData();
       formData.append('audio', { uri, type: 'audio/m4a', name: `voice_${Date.now()}.m4a` });
       formData.append('user', user.email);
-
-      const response = await fetch(`${SERVER_URL}/api/upload-audio`, {
-        method: 'POST',
-        body: formData,
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-
+      const response = await fetch(`${SERVER_URL}/api/upload-audio`, { method: 'POST', body: formData, headers: { 'Content-Type': 'multipart/form-data' } });
       const result = await response.json();
       if (result.status === 'success') {
-        await addDoc(collection(db, "messages"), {
-          audioUrl: result.url,
-          senderId: user.uid,
-          type: 'audio',
-          timestamp: serverTimestamp(),
-        });
+        await addDoc(collection(db, "messages"), { audioUrl: result.url, senderId: user.uid, type: 'audio', timestamp: serverTimestamp() });
       }
-    } catch (err) { Alert.alert("عذراً", "فشل إرسال الصوت، تأكد من اتصال الخادم"); }
+    } catch (err) { Alert.alert("خطأ", "فشل إرسال الصوت"); }
   }
 
   const sendMessage = async () => {
     if (message.trim().length > 0) {
-      await addDoc(collection(db, "messages"), {
-        text: message,
-        senderId: user.uid,
-        type: 'text',
-        timestamp: serverTimestamp(),
-      });
+      await addDoc(collection(db, "messages"), { text: message, senderId: user.uid, type: 'text', timestamp: serverTimestamp() });
       setMessage('');
     }
   };
@@ -208,19 +179,11 @@ export default function App() {
         <View style={styles.headerIcons}>
           <ZegoSendCallInvitationButton 
             invitees={[{ userID: selectedUser.userID, userName: selectedUser.userName }]} 
-            isVideoCall={true} 
-            resourceID={"zegouikit_call"} 
-            backgroundColor="#1f2c34" 
-            iconWidth={30} 
-            iconHeight={30} 
+            isVideoCall={true} resourceID={"zegouikit_call"} backgroundColor="#1f2c34" iconWidth={30} iconHeight={30} 
           />
           <ZegoSendCallInvitationButton 
             invitees={[{ userID: selectedUser.userID, userName: selectedUser.userName }]} 
-            isVideoCall={false} 
-            resourceID={"zegouikit_call"} 
-            backgroundColor="#1f2c34" 
-            iconWidth={30} 
-            iconHeight={30} 
+            isVideoCall={false} resourceID={"zegouikit_call"} backgroundColor="#1f2c34" iconWidth={30} iconHeight={30} 
           />
         </View>
       </View>
@@ -246,10 +209,7 @@ export default function App() {
         <View style={styles.inputWrapper}>
           <TextInput style={styles.textInput} placeholder="مراسلة..." value={message} onChangeText={setMessage} placeholderTextColor="#8596a0" />
         </View>
-        <TouchableOpacity 
-            style={[styles.sendBtn, isRecording && {backgroundColor: '#ff3b30'}]}
-            onPress={message ? sendMessage : (isRecording ? stopRecording : startRecording)}
-        >
+        <TouchableOpacity style={[styles.sendBtn, isRecording && {backgroundColor: '#ff3b30'}]} onPress={message ? sendMessage : (isRecording ? stopRecording : startRecording)}>
           <MaterialCommunityIcons name={message ? "send" : (isRecording ? "stop" : "microphone")} size={24} color="white" />
         </TouchableOpacity>
       </View>
