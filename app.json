@@ -15,6 +15,13 @@
     "assetBundlePatterns": [
       "**/*"
     ],
+    "plugins": [
+      "expo-image-picker",
+      [
+        "react-native-webview",
+        {}
+      ]
+    ],
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -33,12 +40,29 @@
         "VIBRATE",
         "FOREGROUND_SERVICE",
         "WAKE_LOCK",
-        "DISABLE_KEYGUARD"
+        "DISABLE_KEYGUARD",
+        "INTERNET"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": {
+            "scheme": "https"
+          },
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
       ]
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.oasis.app2026"
+      "bundleIdentifier": "com.oasis.app2026",
+      "infoPlist": {
+        "NSCameraUsageDescription": "نحتاج للوصول للكاميرا لإجراء مكالمات الفيديو.",
+        "NSMicrophoneUsageDescription": "نحتاج للوصول للميكروفون لإجراء المكالمات الصوتية."
+      }
     },
     "extra": {
       "eas": {
