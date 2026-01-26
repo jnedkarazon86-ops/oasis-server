@@ -7,13 +7,16 @@
       "developmentClient": true,
       "distribution": "internal"
     },
-    "Preview": {
+    "preview": {
       "android": {
         "buildType": "apk",
         "credentialsSource": "remote"
       }
     },
     "production": {
+      "android": {
+        "buildType": "apk"
+      },
       "credentialsSource": "remote"
     }
   },
