@@ -1,4 +1,4 @@
-Name: Oasis Auto Build APK
+name: Oasis Auto Build APK
 on:
   push:
     branches: [ main ]
