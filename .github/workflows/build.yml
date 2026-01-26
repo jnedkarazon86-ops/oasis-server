@@ -1,4 +1,4 @@
-name: Oasis Auto Build APK
+Name: Oasis Auto Build APK
 on:
   push:
     branches: [ main ]
@@ -15,10 +15,14 @@ jobs:
         with:
           node-version: 18
 
-      - name: Install Libraries
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
+      - name: Install Project Dependencies
         run: npm install
 
       - name: Build APK
-        run: npx eas-cli build --platform android --profile Preview --non-interactive
+        # تم تغيير Preview إلى preview لتطابق ملف eas.json
+        run: eas build --platform android --profile preview --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
