@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, send_from_directory
-from flask_socketio import SocketIO, emit
+from flask_socketio import SocketIO
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import os
@@ -8,10 +8,10 @@ import time
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'oasis_2026_secure_key'
 
-# تفعيل CORS بشكل كامل للموبايل
+# تفعيل CORS بشكل كامل لضمان اتصال الموبايل بالسيرفر دون قيود
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# إعداد المجلدات (Render يمسح الملفات عند إعادة التشغيل، لكن هذا الكود سيخلقها فوراً)
+# إعداد المجلدات الرئيسية للتخزين
 UPLOAD_ROOT = 'assets'
 folders = {
     'audio': os.path.join(UPLOAD_ROOT, 'audio_messages'),
@@ -19,16 +19,18 @@ folders = {
     'video': os.path.join(UPLOAD_ROOT, 'videos')
 }
 
+# التأكد من إنشاء المجلدات فور تشغيل السيرفر
 for folder_path in folders.values():
     os.makedirs(folder_path, exist_ok=True)
 
-# تعديل بسيط هنا لضمان التوافق مع خوادم Render
+# إعداد SocketIO لضمان التوافق مع خوادم Render
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
 @app.route('/')
 def health_check():
-    return {"status": "online", "system": "Oasis Media Server", "version": "3.0.0"}
+    return {"status": "online", "system": "Oasis Media Server", "version": "4.0.0"}
 
+# الرابط المسؤول عن عرض الصور والفيديوهات داخل التطبيق
 @app.route('/assets/<path:subpath>')
 def serve_media(subpath):
     return send_from_directory(UPLOAD_ROOT, subpath)
@@ -40,11 +42,12 @@ def upload_media():
             return jsonify({"error": "No file part"}), 400
         
         file = request.files['file']
-        media_type = request.form.get('type')
+        media_type = request.form.get('type') # 'image', 'video', or 'audio'
         
         if not media_type or media_type not in folders:
             return jsonify({"error": "Invalid media type"}), 400
 
+        # توليد اسم ملف آمن وفريد باستخدام الوقت الحالي
         ext = file.filename.split('.')[-1]
         filename = secure_filename(f"{media_type}_{int(time.time())}.{ext}")
         
@@ -52,8 +55,10 @@ def upload_media():
         filepath = os.path.join(target_folder, filename)
         file.save(filepath)
 
-        # الرابط الموحد
-        relative_url = f"assets/{'audio_messages' if media_type == 'audio' else media_type + 's' if media_type == 'image' else 'videos'}/{filename}"
+        # التعديل الذهبي: بناء المسار ليتوافق مع دالة serve_media
+        # إذا كان النوع image، سيتم تخزينه في assets/images/filename.jpg
+        sub_folder = 'audio_messages' if media_type == 'audio' else f"{media_type}s"
+        relative_url = f"assets/{sub_folder}/{filename}"
         
         return jsonify({
             "status": "success",
@@ -63,6 +68,6 @@ def upload_media():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    # هذا التعديل ضروري جداً لمنصة Render
+    # تشغيل السيرفر على المنفذ الذي يحدده Render تلقائياً
     port = int(os.environ.get("PORT", 10000))
     socketio.run(app, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
