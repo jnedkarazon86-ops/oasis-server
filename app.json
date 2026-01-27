@@ -16,7 +16,13 @@
       "**/*"
     ],
     "plugins": [
-      "expo-image-picker",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "يسمح لك التطبيق باختيار الصور ومقاطع الفيديو لمشاركتها مع أصدقائك.",
+          "cameraPermission": "يسمح لك التطبيق باستخدام الكاميرا لالتقاط الصور وإجراء مكالمات الفيديو."
+        }
+      ],
       [
         "react-native-webview",
         {}
@@ -41,7 +47,9 @@
         "FOREGROUND_SERVICE",
         "WAKE_LOCK",
         "DISABLE_KEYGUARD",
-        "INTERNET"
+        "INTERNET",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
       ],
       "intentFilters": [
         {
@@ -60,8 +68,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.oasis.app2026",
       "infoPlist": {
-        "NSCameraUsageDescription": "نحتاج للوصول للكاميرا لإجراء مكالمات الفيديو.",
-        "NSMicrophoneUsageDescription": "نحتاج للوصول للميكروفون لإجراء المكالمات الصوتية."
+        "NSCameraUsageDescription": "نحتاج للوصول للكاميرا لإجراء مكالمات الفيديو والتقاط الصور.",
+        "NSMicrophoneUsageDescription": "نحتاج للوصول للميكروفون لإجراء المكالمات الصوتية وتسجيل الفيديوهات.",
+        "NSPhotoLibraryUsageDescription": "نحتاج للوصول لمكتبة الصور لتتمكن من إرسال الصور ومقاطع الفيديو."
       }
     },
     "extra": {
