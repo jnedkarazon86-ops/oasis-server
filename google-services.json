@@ -1,24 +1,24 @@
 {
-  "معلومات_المشروع": {
+  "project_info": {
     "project_number": "382600269975",
     "project_id": "oasis-app-afa66",
     "storage_bucket": "oasis-app-afa66.firebasestorage.app"
   },
-  "عميل": [
+  "client": [
     {
       "client_info": {
         "mobilesdk_app_id": "1:382600269975:android:d4fbc3e410dc0652cfd9d2",
         "android_client_info": {
-          "اسم_الحزمة": "com.oasis.app2026"
+          "package_name": "com.oasis.app2026"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBKPGFbYjqEacHOU61DiUYq4QJzHENVUE0"
+          "current_key": "AIzaSyBKPGFbYjqEacHoU61DiUYq4QJzHENVUE0"
         }
       ],
-      "خدمات": {
+      "services": {
         "appinvite_service": {
           "other_platform_oauth_client": []
         }
