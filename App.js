@@ -41,6 +41,15 @@ export default function App() {
   const [adIndex, setAdIndex] = useState(0);
   const [isAttachModalVisible, setAttachModalVisible] = useState(false);
 
+  // دالة لجلب الوقت الحالي بتنسيق (ساعة:دقيقة ص/م)
+  const getCurrentTime = () => {
+    return new Date().toLocaleTimeString('ar-EG', { 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      hour12: true 
+    });
+  };
+
   useEffect(() => {
     const adInterval = setInterval(() => {
       setAdIndex((prev) => (prev + 1) % PROFIT_LINKS.length);
@@ -90,7 +99,11 @@ export default function App() {
     if (message.trim() && selectedUser) {
       const chatId = getChatId(user.uid, selectedUser.id);
       await addDoc(collection(db, "chats", chatId, "messages"), {
-        text: message, senderId: user.uid, type: 'text', timestamp: serverTimestamp()
+        text: message,
+        senderId: user.uid,
+        type: 'text',
+        timestamp: serverTimestamp(),
+        displayTime: getCurrentTime() // إضافة الوقت الحقيقي هنا
       });
       setMessage('');
     }
@@ -115,7 +128,11 @@ export default function App() {
         if (data.status === 'success') {
           const chatId = getChatId(user.uid, selectedUser.id);
           await addDoc(collection(db, "chats", chatId, "messages"), {
-            mediaUrl: data.url, senderId: user.uid, type: mediaType, timestamp: serverTimestamp()
+            mediaUrl: data.url,
+            senderId: user.uid,
+            type: mediaType,
+            timestamp: serverTimestamp(),
+            displayTime: getCurrentTime() // إضافة الوقت الحقيقي هنا للصورة
           });
         }
       } catch (e) { Alert.alert("خطأ", "فشل الرفع"); }
@@ -123,7 +140,6 @@ export default function App() {
     }
   };
 
-  // مكوّن المرفقات (من المجموعة 2)
   const AttachmentMenu = () => (
     <Modal transparent visible={isAttachModalVisible} animationType="slide">
       <TouchableOpacity style={styles.modalOverlay} onPress={() => setAttachModalVisible(false)}>
@@ -225,7 +241,10 @@ export default function App() {
                   ) : (
                     <Text style={styles.messageText}>{item.text}</Text>
                   )}
-                  <Text style={styles.timeTxt}>12:00 م {item.senderId === user.uid && '✓✓'}</Text>
+                  {/* عرض الوقت الحقيقي بدلاً من الوقت الثابت */}
+                  <Text style={styles.timeTxt}>
+                    {item.displayTime || "الآن"} {item.senderId === user.uid && '✓✓'}
+                  </Text>
                 </View>
               )}
             />
