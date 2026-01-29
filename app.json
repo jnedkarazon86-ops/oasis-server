@@ -19,21 +19,17 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "يسمح لك التطبيق باختيار الصور ومقاطع الفيديو لمشاركتها مع أصدقائك.",
+          "photosPermission": "اسمح لواحة Oasis بالوصول إلى صورك لتغيير صورة ملفك الشخصي ومشاركتها مع أصدقائك.",
           "cameraPermission": "يسمح لك التطبيق باستخدام الكاميرا لالتقاط الصور وتحديث حالتك وإجراء مكالمات الفيديو."
         }
       ],
       [
         "expo-av",
         {
-          "microphonePermission": "نحتاج للوصول للميكروفون لتسجيل الرسائل الصوتية وإجراء المكالمات.",
-          "cameraPermission": "يسمح لك التطبيق باستخدام الكاميرا لالتقاط الصور وتحديث حالتك وإجراء مكالمات الفيديو."
+          "microphonePermission": "نحتاج للوصول للميكروفون لتسجيل الرسائل الصوتية وإجراء المكالمات."
         }
       ],
-      [
-        "react-native-webview",
-        {}
-      ],
+      "react-native-webview",
       [
         "@zegocloud/zego-uikit-prebuilt-call-rn",
         {
@@ -69,13 +65,8 @@
       "intentFilters": [
         {
           "action": "VIEW",
-          "data": {
-            "scheme": "https"
-          },
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
+          "data": { "scheme": "https" },
+          "category": ["BROWSABLE", "DEFAULT"]
         }
       ]
     },
@@ -85,12 +76,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "نحتاج للوصول للكاميرا لالتقاط صور الحالة وإجراء مكالمات الفيديو.",
         "NSMicrophoneUsageDescription": "نحتاج للوصول للميكروفون لتسجيل الرسائل الصوتية وإجراء المكالمات.",
-        "NSPhotoLibraryUsageDescription": "نحتاج للوصول لمكتبة الصور لتتمكن من اختيار ومشاركة الصور ومقاطع الفيديو.",
-        "UIBackgroundModes": [
-          "voip",
-          "audio",
-          "fetch"
-        ]
+        "NSPhotoLibraryUsageDescription": "نحتاج للوصول لمكتبة الصور لتتمكن من اختيار ومشاركة الصور وتغيير بروفايلك.",
+        "UIBackgroundModes": ["voip", "audio", "fetch"]
       }
     },
     "extra": {
