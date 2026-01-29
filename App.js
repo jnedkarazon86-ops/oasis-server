@@ -111,11 +111,22 @@ export default function App() {
       if (currentUser && currentUser.emailVerified) {
         setUser(currentUser);
         await setDoc(doc(db, "users", currentUser.uid), { email: currentUser.email, id: currentUser.uid, lastSeen: serverTimestamp() }, { merge: true });
+        
         onSnapshot(query(collection(db, "users")), (s) => {
           const users = s.docs.map(d => d.data()).filter(u => u.id !== currentUser.uid);
           setAllUsers(users); setFilteredUsers(users);
         });
-        ZegoUIKitPrebuiltCallService.init(APP_ID, APP_SIGN, currentUser.uid, currentUser.email.split('@')[0], [ZegoUIKitSignalingPlugin]);
+
+        // --- الإضافة المطلوبة لربط المكالمات بنظام الهاتف (Offline Call Support) ---
+        ZegoUIKitPrebuiltCallService.useSystemCallingUI([ZegoUIKitSignalingPlugin]);
+        
+        ZegoUIKitPrebuiltCallService.init(
+            APP_ID, 
+            APP_SIGN, 
+            currentUser.uid, 
+            currentUser.email.split('@')[0], 
+            [ZegoUIKitSignalingPlugin]
+        );
       } else { setUser(null); }
     });
     return () => unsubscribeAuth();
@@ -234,7 +245,6 @@ export default function App() {
           </View>
           <FlatList data={filteredUsers} renderItem={({ item }) => (
             <TouchableOpacity style={styles.chatRow} onPress={() => setSelectedUser(item)}>
-              {/* عند الضغط على الصورة يفتح المعاينة السريعة */}
               <TouchableOpacity onPress={() => { setPreviewUser(item); setShowPreview(true); }}>
                 <View style={styles.chatAvatar}>
                   {item.profilePic ? <Image source={{ uri: item.profilePic }} style={styles.fullImg} /> : <Text style={styles.avatarTxt}>{item.email[0].toUpperCase()}</Text>}
@@ -296,7 +306,7 @@ export default function App() {
         </KeyboardAvoidingView>
       )}
 
-      {/* نافذة المعاينة السريعة (المطابقة للصورة) */}
+      {/* نافذة المعاينة السريعة */}
       <Modal visible={showPreview} transparent animationType="fade">
         <TouchableOpacity style={styles.previewOverlay} activeOpacity={1} onPress={() => setShowPreview(false)}>
           <View style={styles.previewCard}>
@@ -377,7 +387,6 @@ const styles = StyleSheet.create({
   addBtn: { backgroundColor: '#00a884', paddingVertical: 10, paddingHorizontal: 25, borderRadius: 5, marginLeft: 15 },
   cancelBtn: { paddingVertical: 10, paddingHorizontal: 10 },
   bubble: { padding: 10, borderRadius: 10, margin: 8, maxWidth: '80%' },
-  // تنسيقات المعاينة السريعة
   previewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
   previewCard: { width: 250, backgroundColor: '#1f2c34', borderRadius: 10, overflow: 'hidden' },
   previewImageContainer: { width: 250, height: 250, position: 'relative' },
