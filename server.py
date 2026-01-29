@@ -26,10 +26,9 @@ SUB_FOLDERS = {
 for folder in SUB_FOLDERS.values():
     os.makedirs(os.path.join(UPLOAD_ROOT, folder), exist_ok=True)
 
-# إعداد SocketIO مع دعم gunicorn/eventlet
+# إعداد SocketIO
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
-# 1. فحص الصحة (Health Check)
 @app.route('/')
 def index():
     return jsonify({
@@ -38,12 +37,14 @@ def index():
         "time": int(time.time())
     })
 
-# 2. جلب الملفات (خدمة عرض الصور والفيديو والصوت في التطبيق)
+# تحسين خدمة الملفات لضمان ظهور الصور فور تحديثها
 @app.route('/assets/<path:folder>/<path:filename>')
 def serve_media(folder, filename):
-    return send_from_directory(os.path.join(UPLOAD_ROOT, folder), filename)
+    response = send_from_directory(os.path.join(UPLOAD_ROOT, folder), filename)
+    # إضافة هيدر لمنع الكاش لضمان تحديث صورة البروفايل فوراً
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
+    return response
 
-# 3. المسار الرئيسي لرفع الميديا (صور، فيديو، تسجيلات صوتية)
 @app.route('/api/upload-media', methods=['POST'])
 def upload_media():
     try:
@@ -51,29 +52,29 @@ def upload_media():
             return jsonify({"error": "No file shared"}), 400
         
         file = request.files['file']
+        if file.filename == '':
+            return jsonify({"error": "No filename"}), 400
+
+        # استخراج امتداد الملف بدقة
+        ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else 'jpg'
         
-        # استخراج امتداد الملف (مثل m4a أو jpg)
-        ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
-        
-        # التحديد الذكي لنوع الميديا بناءً على امتداد الملف
+        # التحديد الذكي لنوع الميديا
         if ext in ['m4a', 'mp3', 'wav', 'ogg', 'aac']:
             media_type = 'audio'
         elif ext in ['mp4', 'mov', 'avi', 'mkv']:
             media_type = 'video'
         else:
             media_type = 'image'
-            if not ext: ext = 'jpg'
 
-        # توليد اسم فريد للملف لمنع التكرار
-        filename = secure_filename(f"oasis_{int(time.time())}_{file.filename}")
+        # توليد اسم فريد باستخدام الوقت لمنع تداخل الصور
+        filename = secure_filename(f"oasis_{int(time.time() * 1000)}_{file.filename}")
         if not filename.endswith(f".{ext}"):
             filename = f"{filename}.{ext}"
             
         target_path = os.path.join(UPLOAD_ROOT, SUB_FOLDERS[media_type], filename)
         file.save(target_path)
 
-        # بناء الرابط الكامل (مثال: https://oasis-server.onrender.com/assets/images/...)
-        # استخدام request.host_url يضمن عمل الرابط على Render تلقائياً
+        # بناء الرابط الكامل
         server_base_url = request.host_url.rstrip('/')
         final_url = f"{server_base_url}/assets/{SUB_FOLDERS[media_type]}/{filename}"
 
@@ -89,6 +90,5 @@ def upload_media():
         return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == '__main__':
-    # التشغيل المتوافق مع منافذ Render
     port = int(os.environ.get('PORT', 10000))
     socketio.run(app, host='0.0.0.0', port=port)
