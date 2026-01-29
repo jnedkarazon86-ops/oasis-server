@@ -1,87 +1,84 @@
+import os
+import time
 from flask import Flask, request, jsonify, send_from_directory
 from flask_socketio import SocketIO
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
-import os
-import time
-import eventlet
+from dotenv import load_dotenv
 
-# إعداد التطبيق
+# تحميل متغيرات البيئة (مثل مفاتيح السر)
+load_dotenv()
+
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'oasis_2026_secure_key'
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'oasis_2026_default_key')
 
-# تفعيل CORS للسماح بالاتصال من تطبيق الهاتف
+# تفعيل CORS لدعم تطبيقات الأندرويد والآيفون
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# إعداد المجلدات
+# إعدادات المجلدات وتلقائياً إنشاءها
 UPLOAD_ROOT = 'assets'
-folders = {
-    'image': os.path.join(UPLOAD_ROOT, 'images'),
-    'video': os.path.join(UPLOAD_ROOT, 'videos'),
-    'audio': os.path.join(UPLOAD_ROOT, 'audio_messages')
+SUB_FOLDERS = {
+    'image': 'images',
+    'video': 'videos',
+    'audio': 'audio_messages'
 }
 
-for folder_path in folders.values():
-    os.makedirs(folder_path, exist_ok=True)
+for folder in SUB_FOLDERS.values():
+    os.makedirs(os.path.join(UPLOAD_ROOT, folder), exist_ok=True)
 
-# إعداد SocketIO للدردشة اللحظية (اختياري لو أردت تطويره لاحقاً)
+# إعداد SocketIO مع دعم gunicorn/eventlet
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
-# 1. فحص حالة السيرفر
+# 1. فحص الصحة (Health Check)
 @app.route('/')
-def health_check():
-    return {
-        "status": "online",
-        "system": "Oasis Media Server",
-        "message": "Ready to receive media from React Native"
-    }
+def index():
+    return jsonify({
+        "status": "active",
+        "platform": "Oasis Media Server",
+        "time": int(time.time())
+    })
 
-# 2. المسار الذي يرسل الصور/الفيديو للتطبيق لعرضها
-@app.route('/assets/<path:subpath>')
-def serve_media(subpath):
-    # هذا المسار يسمح للتطبيق بفتح الروابط مثل: https://your-link.com/assets/images/pic.jpg
-    return send_from_directory(UPLOAD_ROOT, subpath)
+# 2. جلب الملفات (خدمة عرض الصور والفيديو في التطبيق)
+@app.route('/assets/<path:folder>/<path:filename>')
+def serve_media(folder, filename):
+    # يسمح بفتح الروابط مثل: /assets/images/photo.jpg
+    return send_from_directory(os.path.join(UPLOAD_ROOT, folder), filename)
 
-# 3. المسار المسؤول عن استقبال الصور من الكاميرا
+# 3. المسار الرئيسي لرفع ميديا الكاميرا (API)
 @app.route('/api/upload-media', methods=['POST'])
 def upload_media():
     try:
         if 'file' not in request.files:
-            return jsonify({"error": "No file part"}), 400
+            return jsonify({"error": "No file shared"}), 400
         
         file = request.files['file']
-        media_type = request.form.get('type', 'image') # افتراضياً صورة إذا لم يحدد
+        media_type = request.form.get('type', 'image') # 'image' أو 'video'
         
-        if media_type not in folders:
-            media_type = 'image'
+        if media_type not in SUB_FOLDERS:
+            return jsonify({"error": "Unsupported media type"}), 400
 
-        # تأمين اسم الملف وإضافة بصمة زمنية لمنع التكرار
-        original_ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else 'jpg'
-        filename = secure_filename(f"oasis_{int(time.time())}.{original_ext}")
+        # توليد اسم فريد: oasis_17000000_photo.jpg
+        ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else 'jpg'
+        filename = secure_filename(f"oasis_{int(time.time())}.{ext}")
         
-        target_folder = folders[media_type]
-        filepath = os.path.join(target_folder, filename)
-        
-        # حفظ الملف
-        file.save(filepath)
+        target_path = os.path.join(UPLOAD_ROOT, SUB_FOLDERS[media_type], filename)
+        file.save(target_path)
 
-        # بناء الرابط الذي سيتم تخزينه في Firebase
-        # ملاحظة: نستخدم 'images' بدلاً من 'image' لتطابق اسم المجلد
-        sub_folder = f"{media_type}s" if media_type != 'audio' else 'audio_messages'
-        final_url = f"assets/{sub_folder}/{filename}"
-        
-        print(f"File saved: {final_url}") # للرقابة في سجلات Render
+        # الرابط الذي سيخزن في Firebase ويستخدمه التطبيق للعرض
+        # سيكون شكله: assets/images/oasis_123.jpg
+        final_relative_url = f"assets/{SUB_FOLDERS[media_type]}/{filename}"
 
         return jsonify({
             "status": "success",
-            "url": final_url
+            "url": final_relative_url,
+            "filename": filename
         }), 201
 
     except Exception as e:
-        print(f"Error: {str(e)}")
-        return jsonify({"error": "Server error during upload"}), 500
+        print(f"Server Error: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
 
-if __name__ == "__main__":
-    # الحصول على المنفذ من Render
-    port = int(os.environ.get("PORT", 10000))
+if __name__ == '__main__':
+    # التشغيل المتوافق مع Render
+    port = int(os.environ.get('PORT', 10000))
     socketio.run(app, host='0.0.0.0', port=port)
