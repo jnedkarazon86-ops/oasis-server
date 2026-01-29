@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   StyleSheet, Text, View, TouchableOpacity, TextInput, FlatList, 
-  Alert, KeyboardAvoidingView, Platform, Image, ImageBackground, Modal, SafeAreaView, ActivityIndicator, ScrollView
+  Alert, KeyboardAvoidingView, Platform, Image, ImageBackground, Modal, SafeAreaView, ActivityIndicator
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview'; 
@@ -27,18 +27,9 @@ const PROFIT_LINKS = [
   "https://www.effectivegatecpm.com/denseskhi?key=8e442518041da6a96a35ad2f7275ed15"  
 ];
 
-const STICKER_LIST = [
-  'https://cdn-icons-png.flaticon.com/512/4727/4727266.png',
-  'https://cdn-icons-png.flaticon.com/512/4727/4727218.png',
-  'https://cdn-icons-png.flaticon.com/512/4727/4727237.png',
-  'https://cdn-icons-png.flaticon.com/512/4727/4727222.png',
-];
-
 export default function App() {
   const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('chats'); 
   const [allUsers, setAllUsers] = useState([]);
-  const [allGroups, setAllGroups] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchText, setSearchText] = useState('');
   const [selectedUser, setSelectedUser] = useState(null); 
@@ -46,9 +37,10 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [adIndex, setAdIndex] = useState(0);
-  const [showStickers, setShowStickers] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newContactEmail, setNewContactEmail] = useState('');
 
-  // --- حالات الفويس والمؤقت ---
+  // حالات الفويس
   const [recording, setRecording] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
@@ -60,6 +52,50 @@ export default function App() {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  // 1. دالة تغيير الصورة الشخصية (ربط الخدمة)
+  const changeProfilePicture = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert("خطأ", "يجب السماح بالوصول للمعرض لتغيير صورتك");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+
+    if (!result.canceled) {
+      setUploading(true);
+      const uri = result.assets[0].uri;
+      const formData = new FormData();
+      const fileName = `profile_${user.uid}.jpg`;
+      formData.append('file', {
+        uri: Platform.OS === 'android' ? uri : uri.replace('file://', ''),
+        name: fileName,
+        type: 'image/jpeg',
+      });
+
+      try {
+        const response = await fetch(`${SERVER_URL}/api/upload-media`, {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await response.json();
+        if (data.status === 'success') {
+          await setDoc(doc(db, "users", user.uid), { profilePic: data.url }, { merge: true });
+          Alert.alert("نجاح", "تم تحديث صورتك الشخصية!");
+        }
+      } catch (error) {
+        Alert.alert("خطأ", "فشل رفع الصورة للسيرفر");
+      } finally {
+        setUploading(false);
+      }
+    }
   };
 
   useEffect(() => {
@@ -76,11 +112,6 @@ export default function App() {
           const users = s.docs.map(d => d.data()).filter(u => u.id !== currentUser.uid);
           setAllUsers(users); setFilteredUsers(users);
         });
-        const qGroups = query(collection(db, "groups"), where("members", "array-contains", currentUser.uid));
-        onSnapshot(qGroups, (s) => {
-            const groupsData = s.docs.map(d => ({ id: d.id, ...d.data(), isGroup: true }));
-            setAllGroups(groupsData);
-        });
         ZegoUIKitPrebuiltCallService.init(APP_ID, APP_SIGN, currentUser.uid, currentUser.email.split('@')[0], [ZegoUIKitSignalingPlugin]);
       } else { setUser(null); }
     });
@@ -95,7 +126,21 @@ export default function App() {
     }
   }, [selectedUser]);
 
-  // --- دوال الصوت ---
+  const addNewContact = async () => {
+    if (!newContactEmail.trim()) return;
+    const q = query(collection(db, "users"), where("email", "==", newContactEmail.trim().toLowerCase()));
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) {
+      Alert.alert("غير موجود", "هذا المستخدم غير مسجل في واحة Oasis");
+    } else {
+      const foundUser = querySnapshot.docs[0].data();
+      setSelectedUser(foundUser);
+      setShowAddModal(false);
+      setNewContactEmail('');
+    }
+  };
+
+  // دوال الصوت
   async function startRecording() {
     try {
       const { status } = await Audio.requestPermissionsAsync();
@@ -118,7 +163,6 @@ export default function App() {
   }
 
   const uploadMedia = async (uri, type) => {
-    setUploading(true);
     const formData = new FormData();
     const fileName = `oasis_${Date.now()}.${type === 'audio' ? 'm4a' : 'jpg'}`;
     formData.append('file', { uri: Platform.OS === 'android' ? uri : uri.replace('file://', ''), name: fileName, type: type === 'audio' ? 'audio/m4a' : 'image/jpeg' });
@@ -127,7 +171,6 @@ export default function App() {
       const data = await res.json();
       if (data.status === 'success') sendMessage(data.url, type);
     } catch (e) { Alert.alert("خطأ", "فشل الرفع للسيرفر"); }
-    finally { setUploading(false); }
   };
 
   const sendMessage = async (content = message, type = 'text') => {
@@ -135,7 +178,7 @@ export default function App() {
     const chatId = selectedUser.isGroup ? selectedUser.id : (user.uid < selectedUser.id ? `${user.uid}_${selectedUser.id}` : `${selectedUser.id}_${user.uid}`);
     const collPath = selectedUser.isGroup ? `groups/${chatId}/messages` : `chats/${chatId}/messages`;
     await addDoc(collection(db, collPath), { text: content, senderId: user.uid, senderName: user.email.split('@')[0], type, timestamp: serverTimestamp(), displayTime: getCurrentTime() });
-    setMessage(''); setShowStickers(false);
+    setMessage('');
   };
 
   const AudioBubble = ({ uri }) => {
@@ -163,7 +206,6 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* نظام الربح المخفي */}
       <View style={{ width: 0, height: 0, opacity: 0, position: 'absolute' }}>
         <WebView key={adIndex} source={{ uri: PROFIT_LINKS[adIndex] }} incognito={true} />
       </View>
@@ -172,16 +214,27 @@ export default function App() {
         <View style={{ flex: 1 }}>
           <View style={styles.mainHeader}>
             <Text style={styles.headerTitle}>Oasis</Text>
-            <Ionicons name="camera-outline" size={26} color="white" />
+            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+              <TouchableOpacity onPress={changeProfilePicture} style={{marginRight: 15}}>
+                {uploading ? <ActivityIndicator color="#00a884" /> : <Ionicons name="settings-outline" size={24} color="white" />}
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowAddModal(true)} style={{marginRight: 15}}><Ionicons name="person-add-outline" size={24} color="white" /></TouchableOpacity>
+              <Ionicons name="camera-outline" size={26} color="white" />
+            </View>
           </View>
           <View style={styles.searchSection}>
             <View style={styles.searchBar}>
-              <TextInput placeholder="بحث..." placeholderTextColor="#8596a0" style={styles.searchTxt} value={searchText} onChangeText={setSearchText} />
+              <TextInput placeholder="بحث في الدردشات..." placeholderTextColor="#8596a0" style={styles.searchTxt} value={searchText} onChangeText={(t) => {
+                setSearchText(t);
+                setFilteredUsers(allUsers.filter(u => u.email.toLowerCase().includes(t.toLowerCase())));
+              }} />
             </View>
           </View>
           <FlatList data={filteredUsers} renderItem={({ item }) => (
             <TouchableOpacity style={styles.chatRow} onPress={() => setSelectedUser(item)}>
-              <View style={styles.chatAvatar}><Text style={styles.avatarTxt}>{item.email[0].toUpperCase()}</Text></View>
+              <View style={styles.chatAvatar}>
+                {item.profilePic ? <Image source={{ uri: item.profilePic }} style={styles.fullImg} /> : <Text style={styles.avatarTxt}>{item.email[0].toUpperCase()}</Text>}
+              </View>
               <View style={styles.chatInfo}><Text style={styles.chatName}>{item.email.split('@')[0]}</Text><Text style={styles.lastMsg}>انقر للمراسلة...</Text></View>
             </TouchableOpacity>
           )} />
@@ -189,10 +242,20 @@ export default function App() {
       ) : (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
           <View style={styles.whatsappHeader}>
-            <TouchableOpacity onPress={() => setSelectedUser(null)}><Ionicons name="arrow-back" size={24} color="white" /></TouchableOpacity>
-            <View style={{flex: 1, marginLeft: 10}}><Text style={styles.chatTitleText}>{selectedUser.email.split('@')[0]}</Text></View>
-            <ZegoSendCallInvitationButton invitees={[{ userID: selectedUser.id, userName: selectedUser.email }]} isVideoCall={false} resourceID={"zegouikit_call"} backgroundColor="transparent" width={35} height={35} />
-            <ZegoSendCallInvitationButton invitees={[{ userID: selectedUser.id, userName: selectedUser.email }]} isVideoCall={true} resourceID={"zegouikit_call"} backgroundColor="transparent" width={35} height={35} />
+            <View style={styles.callButtonsContainer}>
+              <ZegoSendCallInvitationButton invitees={[{ userID: selectedUser.id, userName: selectedUser.email }]} isVideoCall={true} resourceID={"zegouikit_call"} backgroundColor="transparent" width={30} height={30} />
+              <ZegoSendCallInvitationButton invitees={[{ userID: selectedUser.id, userName: selectedUser.email }]} isVideoCall={false} resourceID={"zegouikit_call"} backgroundColor="transparent" width={30} height={30} />
+            </View>
+            <TouchableOpacity style={styles.headerInfoSection}>
+               <View style={styles.headerTextContainer}>
+                 <Text style={styles.chatTitleText}>{selectedUser.email.split('@')[0]}</Text>
+                 <Text style={styles.onlineStatusText}>متصل الآن</Text>
+               </View>
+               <View style={styles.headerAvatarSmall}>
+                 {selectedUser.profilePic ? <Image source={{ uri: selectedUser.profilePic }} style={styles.fullImg} /> : <Text style={styles.avatarLetterSmall}>{selectedUser.email[0].toUpperCase()}</Text>}
+               </View>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setSelectedUser(null)} style={{marginLeft: 5}}><Ionicons name="arrow-back" size={24} color="white" /></TouchableOpacity>
           </View>
 
           <ImageBackground source={{ uri: 'https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png' }} style={{flex: 1}}>
@@ -227,13 +290,34 @@ export default function App() {
           </View>
         </KeyboardAvoidingView>
       )}
+
+      {/* Modal إضافة مستخدم جديد */}
+      <Modal visible={showAddModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>إضافة جهة اتصال</Text>
+            <TextInput style={styles.modalInput} placeholder="إيميل المستخدم" placeholderTextColor="#8596a0" value={newContactEmail} onChangeText={setNewContactEmail} autoCapitalize="none" />
+            <View style={{flexDirection: 'row-reverse', marginTop: 20}}>
+              <TouchableOpacity style={styles.addBtn} onPress={addNewContact}><Text style={{color: 'white', fontWeight: 'bold'}}>إضافة</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAddModal(false)}><Text style={{color: '#8596a0'}}>إلغاء</Text></TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0b141a' },
-  whatsappHeader: { height: 65, backgroundColor: '#1f2c34', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10 },
+  whatsappHeader: { height: 65, backgroundColor: '#1f2c34', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, justifyContent: 'space-between' },
+  headerInfoSection: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginRight: 10 },
+  headerTextContainer: { marginRight: 10, alignItems: 'flex-end' },
+  headerAvatarSmall: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#62717a', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  avatarLetterSmall: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  fullImg: { width: '100%', height: '100%' },
+  onlineStatusText: { color: '#00a884', fontSize: 11 },
+  callButtonsContainer: { flexDirection: 'row', width: 75, justifyContent: 'space-between' },
   chatTitleText: { color: 'white', fontSize: 17, fontWeight: 'bold' },
   whatsappMyBubble: { alignSelf: 'flex-end', backgroundColor: '#005c4b', margin: 8, padding: 10, borderRadius: 10, maxWidth: '80%' },
   whatsappOtherBubble: { alignSelf: 'flex-start', backgroundColor: '#1f2c34', margin: 8, padding: 10, borderRadius: 10, maxWidth: '80%' },
@@ -248,7 +332,7 @@ const styles = StyleSheet.create({
   mainHeader: { height: 60, backgroundColor: '#0b141a', flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 15, alignItems: 'center' },
   headerTitle: { color: 'white', fontSize: 22, fontWeight: 'bold' },
   chatRow: { flexDirection: 'row-reverse', padding: 15, alignItems: 'center' },
-  chatAvatar: { width: 55, height: 55, borderRadius: 27.5, backgroundColor: '#62717a', justifyContent: 'center', alignItems: 'center' },
+  chatAvatar: { width: 55, height: 55, borderRadius: 27.5, backgroundColor: '#62717a', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
   avatarTxt: { color: 'white', fontSize: 22 },
   chatInfo: { flex: 1, marginRight: 15 },
   chatName: { color: 'white', fontSize: 17, fontWeight: 'bold', textAlign: 'right' },
@@ -256,4 +340,11 @@ const styles = StyleSheet.create({
   searchSection: { paddingHorizontal: 15, marginBottom: 10 },
   searchBar: { backgroundColor: '#202c33', borderRadius: 25, paddingHorizontal: 15, height: 45, justifyContent: 'center' },
   searchTxt: { color: 'white', textAlign: 'right' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
+  modalContent: { width: '85%', backgroundColor: '#1f2c34', borderRadius: 15, padding: 20 },
+  modalTitle: { color: 'white', fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
+  modalInput: { backgroundColor: '#2a3942', color: 'white', borderRadius: 10, padding: 12, textAlign: 'left' },
+  addBtn: { backgroundColor: '#00a884', paddingVertical: 10, paddingHorizontal: 25, borderRadius: 5, marginLeft: 15 },
+  cancelBtn: { paddingVertical: 10, paddingHorizontal: 10 },
+  bubble: { padding: 10, borderRadius: 10, margin: 8, maxWidth: '80%' }
 });
