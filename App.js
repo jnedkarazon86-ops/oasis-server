@@ -40,6 +40,10 @@ export default function App() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newContactEmail, setNewContactEmail] = useState('');
 
+  // حالات نافذة المعاينة السريعة
+  const [previewUser, setPreviewUser] = useState(null);
+  const [showPreview, setShowPreview] = useState(false);
+
   // حالات الفويس
   const [recording, setRecording] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -54,7 +58,6 @@ export default function App() {
     return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
-  // 1. دالة تغيير الصورة الشخصية (ربط الخدمة)
   const changeProfilePicture = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
@@ -140,7 +143,6 @@ export default function App() {
     }
   };
 
-  // دوال الصوت
   async function startRecording() {
     try {
       const { status } = await Audio.requestPermissionsAsync();
@@ -216,7 +218,7 @@ export default function App() {
             <Text style={styles.headerTitle}>Oasis</Text>
             <View style={{flexDirection: 'row', alignItems: 'center'}}>
               <TouchableOpacity onPress={changeProfilePicture} style={{marginRight: 15}}>
-                {uploading ? <ActivityIndicator color="#00a884" /> : <Ionicons name="settings-outline" size={24} color="white" />}
+                {uploading ? <ActivityIndicator color="#00a884" size="small" /> : <Ionicons name="settings-outline" size={24} color="white" />}
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setShowAddModal(true)} style={{marginRight: 15}}><Ionicons name="person-add-outline" size={24} color="white" /></TouchableOpacity>
               <Ionicons name="camera-outline" size={26} color="white" />
@@ -232,9 +234,12 @@ export default function App() {
           </View>
           <FlatList data={filteredUsers} renderItem={({ item }) => (
             <TouchableOpacity style={styles.chatRow} onPress={() => setSelectedUser(item)}>
-              <View style={styles.chatAvatar}>
-                {item.profilePic ? <Image source={{ uri: item.profilePic }} style={styles.fullImg} /> : <Text style={styles.avatarTxt}>{item.email[0].toUpperCase()}</Text>}
-              </View>
+              {/* عند الضغط على الصورة يفتح المعاينة السريعة */}
+              <TouchableOpacity onPress={() => { setPreviewUser(item); setShowPreview(true); }}>
+                <View style={styles.chatAvatar}>
+                  {item.profilePic ? <Image source={{ uri: item.profilePic }} style={styles.fullImg} /> : <Text style={styles.avatarTxt}>{item.email[0].toUpperCase()}</Text>}
+                </View>
+              </TouchableOpacity>
               <View style={styles.chatInfo}><Text style={styles.chatName}>{item.email.split('@')[0]}</Text><Text style={styles.lastMsg}>انقر للمراسلة...</Text></View>
             </TouchableOpacity>
           )} />
@@ -291,7 +296,32 @@ export default function App() {
         </KeyboardAvoidingView>
       )}
 
-      {/* Modal إضافة مستخدم جديد */}
+      {/* نافذة المعاينة السريعة (المطابقة للصورة) */}
+      <Modal visible={showPreview} transparent animationType="fade">
+        <TouchableOpacity style={styles.previewOverlay} activeOpacity={1} onPress={() => setShowPreview(false)}>
+          <View style={styles.previewCard}>
+            <View style={styles.previewImageContainer}>
+              {previewUser?.profilePic ? (
+                <Image source={{ uri: previewUser.profilePic }} style={styles.previewImage} />
+              ) : (
+                <View style={[styles.previewImage, {backgroundColor: '#62717a', justifyContent: 'center', alignItems: 'center'}]}>
+                   <Text style={{fontSize: 80, color: 'white'}}>{previewUser?.email[0].toUpperCase()}</Text>
+                </View>
+              )}
+              <View style={styles.previewNameTag}><Text style={styles.previewNameText}>{previewUser?.email.split('@')[0]}</Text></View>
+            </View>
+            <View style={styles.previewActionBar}>
+              <TouchableOpacity onPress={() => { setShowPreview(false); setSelectedUser(previewUser); }}>
+                <Ionicons name="chatbox-ellipses-outline" size={26} color="#00a884" />
+              </TouchableOpacity>
+              <ZegoSendCallInvitationButton invitees={[{ userID: previewUser?.id, userName: previewUser?.email }]} isVideoCall={false} resourceID={"zegouikit_call"} backgroundColor="transparent" width={30} height={30} />
+              <ZegoSendCallInvitationButton invitees={[{ userID: previewUser?.id, userName: previewUser?.email }]} isVideoCall={true} resourceID={"zegouikit_call"} backgroundColor="transparent" width={30} height={30} />
+              <TouchableOpacity><Ionicons name="information-circle-outline" size={26} color="#00a884" /></TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       <Modal visible={showAddModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -346,5 +376,13 @@ const styles = StyleSheet.create({
   modalInput: { backgroundColor: '#2a3942', color: 'white', borderRadius: 10, padding: 12, textAlign: 'left' },
   addBtn: { backgroundColor: '#00a884', paddingVertical: 10, paddingHorizontal: 25, borderRadius: 5, marginLeft: 15 },
   cancelBtn: { paddingVertical: 10, paddingHorizontal: 10 },
-  bubble: { padding: 10, borderRadius: 10, margin: 8, maxWidth: '80%' }
+  bubble: { padding: 10, borderRadius: 10, margin: 8, maxWidth: '80%' },
+  // تنسيقات المعاينة السريعة
+  previewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+  previewCard: { width: 250, backgroundColor: '#1f2c34', borderRadius: 10, overflow: 'hidden' },
+  previewImageContainer: { width: 250, height: 250, position: 'relative' },
+  previewImage: { width: '100%', height: '100%' },
+  previewNameTag: { position: 'absolute', top: 0, width: '100%', backgroundColor: 'rgba(0,0,0,0.3)', padding: 8 },
+  previewNameText: { color: 'white', fontSize: 18, textAlign: 'right' },
+  previewActionBar: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingVertical: 12, backgroundColor: '#1f2c34' },
 });
