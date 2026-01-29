@@ -60,7 +60,8 @@
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
         "SYSTEM_ALERT_WINDOW",
-        "BLUETOOTH_CONNECT"
+        "BLUETOOTH_CONNECT",
+        "POST_NOTIFICATIONS"
       ],
       "intentFilters": [
         {
