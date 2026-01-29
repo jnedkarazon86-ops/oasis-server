@@ -6,13 +6,13 @@ from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
-# تحميل متغيرات البيئة (مثل مفاتيح السر)
+# تحميل متغيرات البيئة
 load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'oasis_2026_default_key')
 
-# تفعيل CORS لدعم تطبيقات الأندرويد والآيفون
+# تفعيل CORS لدعم تطبيقات الأندرويد والآيفون بشكل كامل
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # إعدادات المجلدات وتلقائياً إنشاءها
@@ -38,13 +38,12 @@ def index():
         "time": int(time.time())
     })
 
-# 2. جلب الملفات (خدمة عرض الصور والفيديو في التطبيق)
+# 2. جلب الملفات (خدمة عرض الصور والفيديو والصوت في التطبيق)
 @app.route('/assets/<path:folder>/<path:filename>')
 def serve_media(folder, filename):
-    # يسمح بفتح الروابط مثل: /assets/images/photo.jpg
     return send_from_directory(os.path.join(UPLOAD_ROOT, folder), filename)
 
-# 3. المسار الرئيسي لرفع ميديا الكاميرا (API)
+# 3. المسار الرئيسي لرفع الميديا (صور، فيديو، تسجيلات صوتية)
 @app.route('/api/upload-media', methods=['POST'])
 def upload_media():
     try:
@@ -52,25 +51,36 @@ def upload_media():
             return jsonify({"error": "No file shared"}), 400
         
         file = request.files['file']
-        media_type = request.form.get('type', 'image') # 'image' أو 'video'
         
-        if media_type not in SUB_FOLDERS:
-            return jsonify({"error": "Unsupported media type"}), 400
+        # استخراج امتداد الملف (مثل m4a أو jpg)
+        ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+        
+        # التحديد الذكي لنوع الميديا بناءً على امتداد الملف
+        if ext in ['m4a', 'mp3', 'wav', 'ogg', 'aac']:
+            media_type = 'audio'
+        elif ext in ['mp4', 'mov', 'avi', 'mkv']:
+            media_type = 'video'
+        else:
+            media_type = 'image'
+            if not ext: ext = 'jpg'
 
-        # توليد اسم فريد: oasis_17000000_photo.jpg
-        ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else 'jpg'
-        filename = secure_filename(f"oasis_{int(time.time())}.{ext}")
-        
+        # توليد اسم فريد للملف لمنع التكرار
+        filename = secure_filename(f"oasis_{int(time.time())}_{file.filename}")
+        if not filename.endswith(f".{ext}"):
+            filename = f"{filename}.{ext}"
+            
         target_path = os.path.join(UPLOAD_ROOT, SUB_FOLDERS[media_type], filename)
         file.save(target_path)
 
-        # الرابط الذي سيخزن في Firebase ويستخدمه التطبيق للعرض
-        # سيكون شكله: assets/images/oasis_123.jpg
-        final_relative_url = f"assets/{SUB_FOLDERS[media_type]}/{filename}"
+        # بناء الرابط الكامل (مثال: https://oasis-server.onrender.com/assets/images/...)
+        # استخدام request.host_url يضمن عمل الرابط على Render تلقائياً
+        server_base_url = request.host_url.rstrip('/')
+        final_url = f"{server_base_url}/assets/{SUB_FOLDERS[media_type]}/{filename}"
 
         return jsonify({
             "status": "success",
-            "url": final_relative_url,
+            "url": final_url,
+            "media_type": media_type,
             "filename": filename
         }), 201
 
@@ -79,6 +89,6 @@ def upload_media():
         return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == '__main__':
-    # التشغيل المتوافق مع Render
+    # التشغيل المتوافق مع منافذ Render
     port = int(os.environ.get('PORT', 10000))
     socketio.run(app, host='0.0.0.0', port=port)
