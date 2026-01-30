@@ -22,5 +22,8 @@
     "firebase": "^10.8.0",
     "@react-native-async-storage/async-storage": "1.21.0",
     "react-native-get-random-values": "~1.10.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0"
   }
 }
