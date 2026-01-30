@@ -15,19 +15,16 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 18
-          cache: 'npm'
+          # تمت إزالة الـ cache هنا لحل مشكلة الصورة 1000077398.jpg
 
       - name: Install EAS CLI
         run: npm install -g eas-cli
 
       - name: Install Project Dependencies
-        # تم تحديث الأمر لضمان تثبيت الحزم الجديدة التي أضفناها في package.json
-        run: |
-          npm install --legacy-peer-deps
-          npm install zego-zim-react-native zego-zpns-react-native --legacy-peer-deps
+        # تم تصحيح الحزم بناءً على خطأ الصورة 1000077393.jpg
+        run: npm install --legacy-peer-deps
 
       - name: Build APK
-        # أضفت خيار --no-wait اختياري، لكن سأتركه كما هو لضمان حصولك على رابط التحميل في الأكشن
         run: eas build --platform android --profile preview --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
