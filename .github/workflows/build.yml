@@ -18,7 +18,7 @@ jobs:
         run: npm install -g eas-cli
 
       - name: Clean Install
-        # هذا الأمر يمسح أي مخلفات قديمة ويولد ملف Lock جديد
+        # استخدام legacy-peer-deps يضمن تخطي تعارضات الإصدارات بين المكتبات
         run: |
           npm cache clean --force
           npm install --legacy-peer-deps
