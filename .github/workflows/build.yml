@@ -15,14 +15,16 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 18
-          # تمت إزالة الـ cache هنا لحل مشكلة الصورة 1000077398.jpg
 
       - name: Install EAS CLI
         run: npm install -g eas-cli
 
-      - name: Install Project Dependencies
-        # تم تصحيح الحزم بناءً على خطأ الصورة 1000077393.jpg
-        run: npm install --legacy-peer-deps
+      - name: Clean Install
+        # حذف الـ lock القديم وإجبار النظام على بناء بيئة جديدة تماماً
+        run: |
+          rm -rf node_modules
+          rm -f package-lock.json
+          npm install --legacy-peer-deps
 
       - name: Build APK
         run: eas build --platform android --profile preview --non-interactive
