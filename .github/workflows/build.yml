@@ -1,4 +1,5 @@
 name: Oasis Auto Build APK
+
 on:
   push:
     branches: [ main ]
@@ -19,10 +20,11 @@ jobs:
         run: npm install -g eas-cli
 
       - name: Install Project Dependencies
-        run: npm install
+        # تم استخدام --legacy-peer-deps لحل تعارض مكتبات ZegoCloud مع React Native
+        run: npm install --legacy-peer-deps
 
       - name: Build APK
-        # تم تغيير Preview إلى preview لتطابق ملف eas.json
+        # هذا الأمر يقوم ببناء نسخة APK (preview) وإعطائك رابط التحميل في النهاية
         run: eas build --platform android --profile preview --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
