@@ -33,7 +33,10 @@
       [
         "@zegocloud/zego-uikit-prebuilt-call-rn",
         {
-          "ringtone": "ringtone.mp3"
+          "ringtone": "ringtone.mp3",
+          "android": {
+            "showNotification": true
+          }
         }
       ]
     ],
@@ -61,7 +64,8 @@
         "WRITE_EXTERNAL_STORAGE",
         "SYSTEM_ALERT_WINDOW",
         "BLUETOOTH_CONNECT",
-        "POST_NOTIFICATIONS"
+        "POST_NOTIFICATIONS",
+        "READ_PHONE_STATE"
       ],
       "intentFilters": [
         {
