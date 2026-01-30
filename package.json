@@ -19,7 +19,7 @@
     "@react-navigation/stack": "^6.3.20",
     "react-native-safe-area-context": "4.8.2",
     "react-native-screens": "~3.29.0",
-    "@zegocloud/zego-uikit-prebuilt-call-rn": "^4.16.4",
+    "@zegocloud/zego-uikit-prebuilt-call-rn": "^4.16.0",
     "@zegocloud/zego-uikit-rn": "^2.23.0",
     "zego-uikit-signaling-plugin-rn": "^2.23.0",
     "zego-zim-react-native": "^2.12.0",
