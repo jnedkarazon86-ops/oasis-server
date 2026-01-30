@@ -1,9 +1,7 @@
-name: Oasis Auto Build APK
-
+name: Oasis Build APK
 on:
   push:
     branches: [ main ]
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -19,8 +17,8 @@ jobs:
       - name: Install EAS CLI
         run: npm install -g eas-cli
 
-      - name: Clean Install
-        # نقوم بتنظيف أي كاش قديم وفرض تثبيت الحزم من الصفر
+      - name: Install Dependencies
+        # تجاهل ملفات البايثون والتركيز فقط على الأندرويد
         run: |
           npm cache clean --force
           npm install --legacy-peer-deps
