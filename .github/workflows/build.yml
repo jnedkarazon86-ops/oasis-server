@@ -15,16 +15,19 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 18
+          cache: 'npm'
 
       - name: Install EAS CLI
         run: npm install -g eas-cli
 
       - name: Install Project Dependencies
-        # تم استخدام --legacy-peer-deps لحل تعارض مكتبات ZegoCloud مع React Native
-        run: npm install --legacy-peer-deps
+        # تم تحديث الأمر لضمان تثبيت الحزم الجديدة التي أضفناها في package.json
+        run: |
+          npm install --legacy-peer-deps
+          npm install zego-zim-react-native zego-zpns-react-native --legacy-peer-deps
 
       - name: Build APK
-        # هذا الأمر يقوم ببناء نسخة APK (preview) وإعطائك رابط التحميل في النهاية
+        # أضفت خيار --no-wait اختياري، لكن سأتركه كما هو لضمان حصولك على رابط التحميل في الأكشن
         run: eas build --platform android --profile preview --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
