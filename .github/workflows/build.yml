@@ -17,8 +17,8 @@ jobs:
       - name: Install EAS CLI
         run: npm install -g eas-cli
 
-      - name: Install Dependencies
-        # تجاهل ملفات البايثون والتركيز فقط على الأندرويد
+      - name: Clean Install
+        # هذا الأمر يمسح أي مخلفات قديمة ويولد ملف Lock جديد
         run: |
           npm cache clean --force
           npm install --legacy-peer-deps
