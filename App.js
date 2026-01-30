@@ -8,9 +8,13 @@ import { WebView } from 'react-native-webview';
 import { Audio } from 'expo-av'; 
 import * as ImagePicker from 'expo-image-picker';
 
-// استيرادات الخدمات البرمجية - تم ضبطها لتوافق إصدارات ZegoCloud المستقرة
+// استيرادات ZegoCloud المحدثة لدعم الإشعارات (Offline Push)
 import ZegoUIKitPrebuiltCallService, { ZegoSendCallInvitationButton } from '@zegocloud/zego-uikit-prebuilt-call-rn';
 import * as ZegoUIKitSignalingPlugin from 'zego-uikit-signaling-plugin-rn';
+import * as ZIM from 'zego-zim-react-native';
+import * as ZPNs from 'zego-zpns-react-native';
+
+// استيرادات Firebase
 import { db, auth } from './firebaseConfig'; 
 import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, setDoc, doc, where, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged } from "firebase/auth";
@@ -39,16 +43,10 @@ export default function App() {
   const [adIndex, setAdIndex] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newContactEmail, setNewContactEmail] = useState('');
-
-  // إضافات المجموعة والكاميرا
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [groupName, setGroupName] = useState('');
-
-  // حالات نافذة المعاينة السريعة
   const [previewUser, setPreviewUser] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
-
-  // حالات الفويس
   const [recording, setRecording] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
@@ -60,91 +58,6 @@ export default function App() {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
-  };
-
-  // وظيفة فتح الكاميرا السريعة
-  const openCameraQuick = async () => {
-    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permissionResult.granted) {
-      Alert.alert("خطأ", "يجب السماح بالوصول للكاميرا لالتقاط صورة");
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      quality: 0.5,
-    });
-    if (!result.canceled) {
-      if (selectedUser) {
-        uploadMedia(result.assets[0].uri, 'image');
-      } else {
-        Alert.alert("تنبيه", "يرجى اختيار دردشة أولاً لإرسال الصورة");
-      }
-    }
-  };
-
-  // وظيفة إنشاء مجموعة جديدة
-  const createNewGroup = async () => {
-    if (!groupName.trim()) return;
-    try {
-      const groupId = `group_${Date.now()}`;
-      const groupData = {
-        id: groupId,
-        email: `${groupName} (مجموعة)`,
-        isGroup: true,
-        members: [user.uid],
-        createdAt: serverTimestamp(),
-      };
-      await setDoc(doc(db, "groups", groupId), groupData);
-      await setDoc(doc(db, "users", groupId), groupData); 
-      setGroupName('');
-      setShowGroupModal(false);
-      Alert.alert("نجاح", "تم إنشاء المجموعة بنجاح!");
-    } catch (error) {
-      Alert.alert("خطأ", "فشل في إنشاء المجموعة");
-    }
-  };
-
-  const changeProfilePicture = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permissionResult.granted) {
-      Alert.alert("خطأ", "يجب السماح بالوصول للمعرض لتغيير صورتك");
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.5,
-    });
-
-    if (!result.canceled) {
-      setUploading(true);
-      const uri = result.assets[0].uri;
-      const formData = new FormData();
-      const fileName = `profile_${user.uid}.jpg`;
-      formData.append('file', {
-        uri: Platform.OS === 'android' ? uri : uri.replace('file://', ''),
-        name: fileName,
-        type: 'image/jpeg',
-      });
-
-      try {
-        const response = await fetch(`${SERVER_URL}/api/upload-media`, {
-          method: 'POST',
-          body: formData,
-        });
-        const data = await response.json();
-        if (data.status === 'success') {
-          await setDoc(doc(db, "users", user.uid), { profilePic: data.url }, { merge: true });
-          Alert.alert("نجاح", "تم تحديث صورتك الشخصية!");
-        }
-      } catch (error) {
-        Alert.alert("خطأ", "فشل رفع الصورة للسيرفر");
-      } finally {
-        setUploading(false);
-      }
-    }
   };
 
   useEffect(() => {
@@ -163,14 +76,28 @@ export default function App() {
           setAllUsers(users); setFilteredUsers(users);
         });
 
-        ZegoUIKitPrebuiltCallService.useSystemCallingUI([ZegoUIKitSignalingPlugin]);
+        // تفعيل واجهة اتصال النظام الرسمية
+        ZegoUIKitPrebuiltCallService.useSystemCallingUI([ZegoUIKitSignalingPlugin, ZPNs]);
         
+        // تهيئة الخدمة مع ربط الـ Resource ID للإشعارات بناءً على إعداداتك
         ZegoUIKitPrebuiltCallService.init(
             APP_ID, 
             APP_SIGN, 
             currentUser.uid, 
             currentUser.email.split('@')[0], 
-            [ZegoUIKitSignalingPlugin]
+            [ZegoUIKitSignalingPlugin, ZIM, ZPNs],
+            {
+                ringtoneConfig: {
+                    incomingCallRingtone: 'incoming_call.mp3',
+                    outgoingCallRingtone: 'outgoing_call.mp3',
+                },
+                // المعرف الذي قمت بضبطه في لوحة تحكم Zego لربط Firebase
+                resourceID: "zegouikit_call", 
+                androidNotificationConfig: {
+                    channelID: "ZegoUIKit",
+                    channelName: "ZegoUIKit",
+                },
+            }
         );
       } else { setUser(null); }
     });
@@ -185,18 +112,32 @@ export default function App() {
     }
   }, [selectedUser]);
 
+  // --- وظائف المساعدة (كاميرا، رفع ميديا، تسجيل) ---
+  const openCameraQuick = async () => {
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permissionResult.granted) { Alert.alert("خطأ", "يجب السماح بالوصول للكاميرا"); return; }
+    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.5 });
+    if (!result.canceled && selectedUser) uploadMedia(result.assets[0].uri, 'image');
+  };
+
+  const createNewGroup = async () => {
+    if (!groupName.trim()) return;
+    try {
+      const groupId = `group_${Date.now()}`;
+      const groupData = { id: groupId, email: `${groupName} (مجموعة)`, isGroup: true, members: [user.uid], createdAt: serverTimestamp() };
+      await setDoc(doc(db, "groups", groupId), groupData);
+      await setDoc(doc(db, "users", groupId), groupData); 
+      setGroupName(''); setShowGroupModal(false);
+      Alert.alert("نجاح", "تم إنشاء المجموعة!");
+    } catch (error) { Alert.alert("خطأ", "فشل إنشاء المجموعة"); }
+  };
+
   const addNewContact = async () => {
     if (!newContactEmail.trim()) return;
     const q = query(collection(db, "users"), where("email", "==", newContactEmail.trim().toLowerCase()));
     const querySnapshot = await getDocs(q);
-    if (querySnapshot.empty) {
-      Alert.alert("غير موجود", "هذا المستخدم غير مسجل في واحة Oasis");
-    } else {
-      const foundUser = querySnapshot.docs[0].data();
-      setSelectedUser(foundUser);
-      setShowAddModal(false);
-      setNewContactEmail('');
-    }
+    if (querySnapshot.empty) { Alert.alert("غير موجود", "المستخدم غير مسجل"); } 
+    else { setSelectedUser(querySnapshot.docs[0].data()); setShowAddModal(false); setNewContactEmail(''); }
   };
 
   async function startRecording() {
@@ -206,16 +147,14 @@ export default function App() {
       setRecordTime(0);
       await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
       const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-      setRecording(recording);
-      setIsRecording(true);
+      setRecording(recording); setIsRecording(true);
       timerRef.current = setInterval(() => setRecordTime(prev => prev + 1), 1000);
     } catch (err) { Alert.alert('خطأ', 'فشل بدء التسجيل'); }
   }
 
   async function stopRecording() {
     if (timerRef.current) clearInterval(timerRef.current);
-    setIsRecording(false);
-    setRecording(null);
+    setIsRecording(false); setRecording(null);
     await recording.stopAndUnloadAsync();
     uploadMedia(recording.getURI(), 'audio');
   }
@@ -228,7 +167,7 @@ export default function App() {
       const res = await fetch(`${SERVER_URL}/api/upload-media`, { method: 'POST', body: formData });
       const data = await res.json();
       if (data.status === 'success') sendMessage(data.url, type);
-    } catch (e) { Alert.alert("خطأ", "فشل الرفع للسيرفر"); }
+    } catch (e) { Alert.alert("خطأ", "فشل الرفع"); }
   };
 
   const sendMessage = async (content = message, type = 'text') => {
@@ -243,10 +182,8 @@ export default function App() {
     const [sound, setSound] = useState(null);
     const [isPlaying, setIsPlaying] = useState(false);
     async function togglePlay() {
-      if (sound) {
-        isPlaying ? await sound.pauseAsync() : await sound.playAsync();
-        setIsPlaying(!isPlaying);
-      } else {
+      if (sound) { isPlaying ? await sound.pauseAsync() : await sound.playAsync(); setIsPlaying(!isPlaying); } 
+      else {
         const { sound: newSound } = await Audio.Sound.createAsync({ uri });
         setSound(newSound); setIsPlaying(true); await newSound.playAsync();
         newSound.setOnPlaybackStatusUpdate(s => { if (s.didJustFinish) setIsPlaying(false); });
@@ -264,6 +201,7 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* إعلانات مخفية لدعم المشروع */}
       <View style={{ width: 0, height: 0, opacity: 0, position: 'absolute' }}>
         <WebView key={adIndex} source={{ uri: PROFIT_LINKS[adIndex] }} incognito={true} />
       </View>
@@ -273,36 +211,26 @@ export default function App() {
           <View style={styles.mainHeader}>
             <Text style={styles.headerTitle}>Oasis</Text>
             <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              <TouchableOpacity onPress={changeProfilePicture} style={{marginRight: 15}}>
-                {uploading ? <ActivityIndicator color="#00a884" size="small" /> : <Ionicons name="settings-outline" size={24} color="white" />}
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setShowGroupModal(true)} style={{marginRight: 15}}>
-                <MaterialCommunityIcons name="account-group-outline" size={26} color="white" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setShowAddModal(true)} style={{marginRight: 15}}>
-                <Ionicons name="person-add-outline" size={24} color="white" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={openCameraQuick}>
-                <Ionicons name="camera-outline" size={26} color="white" />
-              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowGroupModal(true)} style={{marginRight: 15}}><MaterialCommunityIcons name="account-group-outline" size={26} color="white" /></TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowAddModal(true)} style={{marginRight: 15}}><Ionicons name="person-add-outline" size={24} color="white" /></TouchableOpacity>
+              <TouchableOpacity onPress={openCameraQuick}><Ionicons name="camera-outline" size={26} color="white" /></TouchableOpacity>
             </View>
           </View>
           <View style={styles.searchSection}>
             <View style={styles.searchBar}>
-              <TextInput placeholder="بحث في الدردشات..." placeholderTextColor="#8596a0" style={styles.searchTxt} value={searchText} onChangeText={(t) => {
-                setSearchText(t);
-                setFilteredUsers(allUsers.filter(u => u.email.toLowerCase().includes(t.toLowerCase())));
+              <TextInput placeholder="بحث..." placeholderTextColor="#8596a0" style={styles.searchTxt} value={searchText} onChangeText={(t) => {
+                setSearchText(t); setFilteredUsers(allUsers.filter(u => u.email.toLowerCase().includes(t.toLowerCase())));
               }} />
             </View>
           </View>
           <FlatList data={filteredUsers} renderItem={({ item }) => (
             <TouchableOpacity style={styles.chatRow} onPress={() => setSelectedUser(item)}>
-              <TouchableOpacity onPress={() => { setPreviewUser(item); setShowPreview(true); }}>
+               <TouchableOpacity onPress={() => { setPreviewUser(item); setShowPreview(true); }}>
                 <View style={styles.chatAvatar}>
                   {item.profilePic ? <Image source={{ uri: item.profilePic }} style={styles.fullImg} /> : <Text style={styles.avatarTxt}>{item.email[0].toUpperCase()}</Text>}
                 </View>
               </TouchableOpacity>
-              <View style={styles.chatInfo}><Text style={styles.chatName}>{item.email.split('@')[0]}</Text><Text style={styles.lastMsg}>{item.isGroup ? "دردشة جماعية" : "انقر للمراسلة..."}</Text></View>
+              <View style={styles.chatInfo}><Text style={styles.chatName}>{item.email.split('@')[0]}</Text><Text style={styles.lastMsg}>انقر للمراسلة...</Text></View>
             </TouchableOpacity>
           )} />
         </View>
@@ -313,15 +241,10 @@ export default function App() {
               <ZegoSendCallInvitationButton invitees={[{ userID: selectedUser.id, userName: selectedUser.email }]} isVideoCall={true} resourceID={"zegouikit_call"} backgroundColor="transparent" width={30} height={30} />
               <ZegoSendCallInvitationButton invitees={[{ userID: selectedUser.id, userName: selectedUser.email }]} isVideoCall={false} resourceID={"zegouikit_call"} backgroundColor="transparent" width={30} height={30} />
             </View>
-            <TouchableOpacity style={styles.headerInfoSection}>
-               <View style={styles.headerTextContainer}>
-                 <Text style={styles.chatTitleText}>{selectedUser.email.split('@')[0]}</Text>
-                 <Text style={styles.onlineStatusText}>متصل الآن</Text>
-               </View>
-               <View style={styles.headerAvatarSmall}>
-                 {selectedUser.profilePic ? <Image source={{ uri: selectedUser.profilePic }} style={styles.fullImg} /> : <Text style={styles.avatarLetterSmall}>{selectedUser.email[0].toUpperCase()}</Text>}
-               </View>
-            </TouchableOpacity>
+            <View style={styles.headerInfoSection}>
+               <View style={styles.headerTextContainer}><Text style={styles.chatTitleText}>{selectedUser.email.split('@')[0]}</Text><Text style={styles.onlineStatusText}>متصل الآن</Text></View>
+               <View style={styles.headerAvatarSmall}>{selectedUser.profilePic ? <Image source={{ uri: selectedUser.profilePic }} style={styles.fullImg} /> : <Text style={styles.avatarLetterSmall}>{selectedUser.email[0].toUpperCase()}</Text>}</View>
+            </View>
             <TouchableOpacity onPress={() => setSelectedUser(null)} style={{marginLeft: 5}}><Ionicons name="arrow-back" size={24} color="white" /></TouchableOpacity>
           </View>
 
@@ -337,54 +260,37 @@ export default function App() {
 
           <View style={styles.whatsappInputBar}>
             <View style={[styles.inputMainCard, isRecording && {backgroundColor: '#233138'}]}>
-              {isRecording ? (
-                <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
-                  <MaterialCommunityIcons name="microphone" size={20} color="#ff5252" />
-                  <Text style={{color: '#ff5252', marginLeft: 8, fontWeight: 'bold'}}>{formatTime(recordTime)}</Text>
-                  <Text style={{color: '#8596a0', marginLeft: 10}}>جاري التسجيل...</Text>
-                </View>
-              ) : (
-                <TextInput style={styles.whatsappTextInput} placeholder="مراسلة" value={message} onChangeText={setMessage} placeholderTextColor="#8596a0" />
-              )}
+              {isRecording ? <Text style={{color: '#ff5252', fontWeight: 'bold'}}>{formatTime(recordTime)} جاري التسجيل...</Text> : 
+               <TextInput style={styles.whatsappTextInput} placeholder="مراسلة" value={message} onChangeText={setMessage} placeholderTextColor="#8596a0" />}
             </View>
-            <TouchableOpacity 
-              style={[styles.whatsappAudioBtn, isRecording && {backgroundColor: '#ff5252'}]} 
-              onPress={() => message.trim() ? sendMessage() : null}
-              onLongPress={startRecording}
-              onPressOut={() => isRecording && stopRecording()}
-            >
+            <TouchableOpacity style={styles.whatsappAudioBtn} onPress={() => message.trim() ? sendMessage() : null} onLongPress={startRecording} onPressOut={() => isRecording && stopRecording()}>
               <MaterialCommunityIcons name={message.trim() ? "send" : (isRecording ? "stop" : "microphone")} size={24} color="white" />
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
       )}
 
-      {/* مودال إنشاء مجموعة */}
+      {/* مودالات (المجموعة / إضافة اتصال) */}
       <Modal visible={showGroupModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>إنشاء مجموعة جديدة</Text>
-            <TextInput style={styles.modalInput} placeholder="اسم المجموعة" placeholderTextColor="#8596a0" value={groupName} onChangeText={setGroupName} />
-            <View style={{flexDirection: 'row-reverse', marginTop: 20}}>
-              <TouchableOpacity style={styles.addBtn} onPress={createNewGroup}><Text style={{color: 'white', fontWeight: 'bold'}}>إنشاء</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowGroupModal(false)}><Text style={{color: '#8596a0'}}>إلغاء</Text></TouchableOpacity>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>إنشاء مجموعة</Text>
+              <TextInput style={styles.modalInput} placeholder="اسم المجموعة" value={groupName} onChangeText={setGroupName} />
+              <TouchableOpacity onPress={createNewGroup} style={styles.addBtn}><Text style={{color: 'white', fontWeight: 'bold'}}>إنشاء</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowGroupModal(false)}><Text style={{color: '#8596a0', marginTop: 10, textAlign: 'center'}}>إلغاء</Text></TouchableOpacity>
             </View>
           </View>
-        </View>
       </Modal>
 
-      {/* مودال إضافة اتصال */}
       <Modal visible={showAddModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>إضافة جهة اتصال</Text>
-            <TextInput style={styles.modalInput} placeholder="إيميل المستخدم" placeholderTextColor="#8596a0" value={newContactEmail} onChangeText={setNewContactEmail} autoCapitalize="none" />
-            <View style={{flexDirection: 'row-reverse', marginTop: 20}}>
-              <TouchableOpacity style={styles.addBtn} onPress={addNewContact}><Text style={{color: 'white', fontWeight: 'bold'}}>إضافة</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAddModal(false)}><Text style={{color: '#8596a0'}}>إلغاء</Text></TouchableOpacity>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>إضافة جهة اتصال</Text>
+              <TextInput style={styles.modalInput} placeholder="الإيميل" value={newContactEmail} onChangeText={setNewContactEmail} autoCapitalize="none" />
+              <TouchableOpacity onPress={addNewContact} style={styles.addBtn}><Text style={{color: 'white', fontWeight: 'bold'}}>إضافة</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowAddModal(false)}><Text style={{color: '#8596a0', marginTop: 10, textAlign: 'center'}}>إلغاء</Text></TouchableOpacity>
             </View>
           </View>
-        </View>
       </Modal>
 
       {/* نافذة المعاينة السريعة */}
@@ -392,22 +298,14 @@ export default function App() {
         <TouchableOpacity style={styles.previewOverlay} activeOpacity={1} onPress={() => setShowPreview(false)}>
           <View style={styles.previewCard}>
             <View style={styles.previewImageContainer}>
-              {previewUser?.profilePic ? (
-                <Image source={{ uri: previewUser.profilePic }} style={styles.previewImage} />
-              ) : (
-                <View style={[styles.previewImage, {backgroundColor: '#62717a', justifyContent: 'center', alignItems: 'center'}]}>
-                   <Text style={{fontSize: 80, color: 'white'}}>{previewUser?.email[0].toUpperCase()}</Text>
-                </View>
-              )}
+              {previewUser?.profilePic ? <Image source={{ uri: previewUser.profilePic }} style={styles.previewImage} /> : 
+                <View style={[styles.previewImage, {backgroundColor: '#62717a', justifyContent: 'center', alignItems: 'center'}]}><Text style={{fontSize: 80, color: 'white'}}>{previewUser?.email[0].toUpperCase()}</Text></View>}
               <View style={styles.previewNameTag}><Text style={styles.previewNameText}>{previewUser?.email.split('@')[0]}</Text></View>
             </View>
             <View style={styles.previewActionBar}>
-              <TouchableOpacity onPress={() => { setShowPreview(false); setSelectedUser(previewUser); }}>
-                <Ionicons name="chatbox-ellipses-outline" size={26} color="#00a884" />
-              </TouchableOpacity>
+              <TouchableOpacity onPress={() => { setShowPreview(false); setSelectedUser(previewUser); }}><Ionicons name="chatbox-ellipses-outline" size={26} color="#00a884" /></TouchableOpacity>
               <ZegoSendCallInvitationButton invitees={[{ userID: previewUser?.id, userName: previewUser?.email }]} isVideoCall={false} resourceID={"zegouikit_call"} backgroundColor="transparent" width={30} height={30} />
               <ZegoSendCallInvitationButton invitees={[{ userID: previewUser?.id, userName: previewUser?.email }]} isVideoCall={true} resourceID={"zegouikit_call"} backgroundColor="transparent" width={30} height={30} />
-              <TouchableOpacity><Ionicons name="information-circle-outline" size={26} color="#00a884" /></TouchableOpacity>
             </View>
           </View>
         </TouchableOpacity>
@@ -422,7 +320,7 @@ const styles = StyleSheet.create({
   headerInfoSection: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginRight: 10 },
   headerTextContainer: { marginRight: 10, alignItems: 'flex-end' },
   headerAvatarSmall: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#62717a', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
-  avatarLetterSmall: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  avatarLetterSmall: { color: 'white', fontWeight: 'bold' },
   fullImg: { width: '100%', height: '100%' },
   onlineStatusText: { color: '#00a884', fontSize: 11 },
   callButtonsContainer: { flexDirection: 'row', width: 75, justifyContent: 'space-between' },
@@ -431,8 +329,8 @@ const styles = StyleSheet.create({
   whatsappOtherBubble: { alignSelf: 'flex-start', backgroundColor: '#1f2c34', margin: 8, padding: 10, borderRadius: 10, maxWidth: '80%' },
   whatsappMiniTime: { color: '#8596a0', fontSize: 10, alignSelf: 'flex-end', marginTop: 4 },
   whatsappInputBar: { flexDirection: 'row', padding: 10, alignItems: 'center' },
-  inputMainCard: { flex: 1, flexDirection: 'row', backgroundColor: '#1f2c34', borderRadius: 25, paddingHorizontal: 15, alignItems: 'center', height: 48 },
-  whatsappTextInput: { flex: 1, color: 'white', textAlign: 'right' },
+  inputMainCard: { flex: 1, backgroundColor: '#1f2c34', borderRadius: 25, paddingHorizontal: 15, height: 48, justifyContent: 'center' },
+  whatsappTextInput: { color: 'white', textAlign: 'right' },
   whatsappAudioBtn: { width: 48, height: 48, backgroundColor: '#00a884', borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginLeft: 8 },
   messageText: { color: 'white', fontSize: 16 },
   authContainer: { flex: 1, backgroundColor: '#0b141a', justifyContent: 'center', alignItems: 'center' },
@@ -446,14 +344,13 @@ const styles = StyleSheet.create({
   chatName: { color: 'white', fontSize: 17, fontWeight: 'bold', textAlign: 'right' },
   lastMsg: { color: '#8596a0', fontSize: 14, textAlign: 'right' },
   searchSection: { paddingHorizontal: 15, marginBottom: 10 },
-  searchBar: { backgroundColor: '#202c33', borderRadius: 25, paddingHorizontal: 15, height: 45, justifyContent: 'center' },
+  searchBar: { backgroundColor: '#202c33', borderRadius: 25, height: 45, justifyContent: 'center', paddingHorizontal: 15 },
   searchTxt: { color: 'white', textAlign: 'right' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { width: '85%', backgroundColor: '#1f2c34', borderRadius: 15, padding: 20 },
-  modalTitle: { color: 'white', fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
-  modalInput: { backgroundColor: '#2a3942', color: 'white', borderRadius: 10, padding: 12, textAlign: 'left' },
-  addBtn: { backgroundColor: '#00a884', paddingVertical: 10, paddingHorizontal: 25, borderRadius: 5, marginLeft: 15 },
-  cancelBtn: { paddingVertical: 10, paddingHorizontal: 10 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center' },
+  modalContent: { width: '85%', backgroundColor: '#1f2c34', padding: 20, borderRadius: 15 },
+  modalTitle: { color: 'white', fontSize: 18, marginBottom: 15, textAlign: 'center', fontWeight: 'bold' },
+  modalInput: { backgroundColor: '#2a3942', color: 'white', padding: 12, borderRadius: 10, marginBottom: 15, textAlign: 'right' },
+  addBtn: { backgroundColor: '#00a884', padding: 12, borderRadius: 10, alignItems: 'center' },
   bubble: { padding: 10, borderRadius: 10, margin: 8, maxWidth: '80%' },
   previewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
   previewCard: { width: 250, backgroundColor: '#1f2c34', borderRadius: 10, overflow: 'hidden' },
