@@ -8,7 +8,7 @@ import { WebView } from 'react-native-webview';
 import { Audio } from 'expo-av'; 
 import * as ImagePicker from 'expo-image-picker';
 
-// استيرادات الخدمات البرمجية
+// استيرادات الخدمات البرمجية - تم ضبطها لتوافق إصدارات ZegoCloud المستقرة
 import ZegoUIKitPrebuiltCallService, { ZegoSendCallInvitationButton } from '@zegocloud/zego-uikit-prebuilt-call-rn';
 import * as ZegoUIKitSignalingPlugin from 'zego-uikit-signaling-plugin-rn';
 import { db, auth } from './firebaseConfig'; 
@@ -40,6 +40,10 @@ export default function App() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newContactEmail, setNewContactEmail] = useState('');
 
+  // إضافات المجموعة والكاميرا
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [groupName, setGroupName] = useState('');
+
   // حالات نافذة المعاينة السريعة
   const [previewUser, setPreviewUser] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -56,6 +60,48 @@ export default function App() {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  // وظيفة فتح الكاميرا السريعة
+  const openCameraQuick = async () => {
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert("خطأ", "يجب السماح بالوصول للكاميرا لالتقاط صورة");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.5,
+    });
+    if (!result.canceled) {
+      if (selectedUser) {
+        uploadMedia(result.assets[0].uri, 'image');
+      } else {
+        Alert.alert("تنبيه", "يرجى اختيار دردشة أولاً لإرسال الصورة");
+      }
+    }
+  };
+
+  // وظيفة إنشاء مجموعة جديدة
+  const createNewGroup = async () => {
+    if (!groupName.trim()) return;
+    try {
+      const groupId = `group_${Date.now()}`;
+      const groupData = {
+        id: groupId,
+        email: `${groupName} (مجموعة)`,
+        isGroup: true,
+        members: [user.uid],
+        createdAt: serverTimestamp(),
+      };
+      await setDoc(doc(db, "groups", groupId), groupData);
+      await setDoc(doc(db, "users", groupId), groupData); 
+      setGroupName('');
+      setShowGroupModal(false);
+      Alert.alert("نجاح", "تم إنشاء المجموعة بنجاح!");
+    } catch (error) {
+      Alert.alert("خطأ", "فشل في إنشاء المجموعة");
+    }
   };
 
   const changeProfilePicture = async () => {
@@ -117,7 +163,6 @@ export default function App() {
           setAllUsers(users); setFilteredUsers(users);
         });
 
-        // --- الإضافة المطلوبة لربط المكالمات بنظام الهاتف (Offline Call Support) ---
         ZegoUIKitPrebuiltCallService.useSystemCallingUI([ZegoUIKitSignalingPlugin]);
         
         ZegoUIKitPrebuiltCallService.init(
@@ -231,8 +276,15 @@ export default function App() {
               <TouchableOpacity onPress={changeProfilePicture} style={{marginRight: 15}}>
                 {uploading ? <ActivityIndicator color="#00a884" size="small" /> : <Ionicons name="settings-outline" size={24} color="white" />}
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setShowAddModal(true)} style={{marginRight: 15}}><Ionicons name="person-add-outline" size={24} color="white" /></TouchableOpacity>
-              <Ionicons name="camera-outline" size={26} color="white" />
+              <TouchableOpacity onPress={() => setShowGroupModal(true)} style={{marginRight: 15}}>
+                <MaterialCommunityIcons name="account-group-outline" size={26} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowAddModal(true)} style={{marginRight: 15}}>
+                <Ionicons name="person-add-outline" size={24} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={openCameraQuick}>
+                <Ionicons name="camera-outline" size={26} color="white" />
+              </TouchableOpacity>
             </View>
           </View>
           <View style={styles.searchSection}>
@@ -250,7 +302,7 @@ export default function App() {
                   {item.profilePic ? <Image source={{ uri: item.profilePic }} style={styles.fullImg} /> : <Text style={styles.avatarTxt}>{item.email[0].toUpperCase()}</Text>}
                 </View>
               </TouchableOpacity>
-              <View style={styles.chatInfo}><Text style={styles.chatName}>{item.email.split('@')[0]}</Text><Text style={styles.lastMsg}>انقر للمراسلة...</Text></View>
+              <View style={styles.chatInfo}><Text style={styles.chatName}>{item.email.split('@')[0]}</Text><Text style={styles.lastMsg}>{item.isGroup ? "دردشة جماعية" : "انقر للمراسلة..."}</Text></View>
             </TouchableOpacity>
           )} />
         </View>
@@ -276,7 +328,8 @@ export default function App() {
           <ImageBackground source={{ uri: 'https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png' }} style={{flex: 1}}>
             <FlatList data={chatMessages} renderItem={({ item }) => (
               <View style={[styles.bubble, item.senderId === user.uid ? styles.whatsappMyBubble : styles.whatsappOtherBubble]}>
-                {item.type === 'audio' ? <AudioBubble uri={item.text} /> : <Text style={styles.messageText}>{item.text}</Text>}
+                {item.type === 'image' ? <Image source={{uri: item.text}} style={{width: 200, height: 200, borderRadius: 10}} /> : 
+                 item.type === 'audio' ? <AudioBubble uri={item.text} /> : <Text style={styles.messageText}>{item.text}</Text>}
                 <Text style={styles.whatsappMiniTime}>{item.displayTime}</Text>
               </View>
             )} />
@@ -306,6 +359,34 @@ export default function App() {
         </KeyboardAvoidingView>
       )}
 
+      {/* مودال إنشاء مجموعة */}
+      <Modal visible={showGroupModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>إنشاء مجموعة جديدة</Text>
+            <TextInput style={styles.modalInput} placeholder="اسم المجموعة" placeholderTextColor="#8596a0" value={groupName} onChangeText={setGroupName} />
+            <View style={{flexDirection: 'row-reverse', marginTop: 20}}>
+              <TouchableOpacity style={styles.addBtn} onPress={createNewGroup}><Text style={{color: 'white', fontWeight: 'bold'}}>إنشاء</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowGroupModal(false)}><Text style={{color: '#8596a0'}}>إلغاء</Text></TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* مودال إضافة اتصال */}
+      <Modal visible={showAddModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>إضافة جهة اتصال</Text>
+            <TextInput style={styles.modalInput} placeholder="إيميل المستخدم" placeholderTextColor="#8596a0" value={newContactEmail} onChangeText={setNewContactEmail} autoCapitalize="none" />
+            <View style={{flexDirection: 'row-reverse', marginTop: 20}}>
+              <TouchableOpacity style={styles.addBtn} onPress={addNewContact}><Text style={{color: 'white', fontWeight: 'bold'}}>إضافة</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAddModal(false)}><Text style={{color: '#8596a0'}}>إلغاء</Text></TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* نافذة المعاينة السريعة */}
       <Modal visible={showPreview} transparent animationType="fade">
         <TouchableOpacity style={styles.previewOverlay} activeOpacity={1} onPress={() => setShowPreview(false)}>
@@ -330,19 +411,6 @@ export default function App() {
             </View>
           </View>
         </TouchableOpacity>
-      </Modal>
-
-      <Modal visible={showAddModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>إضافة جهة اتصال</Text>
-            <TextInput style={styles.modalInput} placeholder="إيميل المستخدم" placeholderTextColor="#8596a0" value={newContactEmail} onChangeText={setNewContactEmail} autoCapitalize="none" />
-            <View style={{flexDirection: 'row-reverse', marginTop: 20}}>
-              <TouchableOpacity style={styles.addBtn} onPress={addNewContact}><Text style={{color: 'white', fontWeight: 'bold'}}>إضافة</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAddModal(false)}><Text style={{color: '#8596a0'}}>إلغاء</Text></TouchableOpacity>
-            </View>
-          </View>
-        </View>
       </Modal>
     </SafeAreaView>
   );
