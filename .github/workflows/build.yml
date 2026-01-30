@@ -20,10 +20,9 @@ jobs:
         run: npm install -g eas-cli
 
       - name: Clean Install
-        # حذف الـ lock القديم وإجبار النظام على بناء بيئة جديدة تماماً
+        # نقوم بتنظيف أي كاش قديم وفرض تثبيت الحزم من الصفر
         run: |
-          rm -rf node_modules
-          rm -f package-lock.json
+          npm cache clean --force
           npm install --legacy-peer-deps
 
       - name: Build APK
