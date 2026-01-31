@@ -33,9 +33,14 @@
       [
         "@zegocloud/zego-uikit-prebuilt-call-rn",
         {
-          "ringtone": "ringtone.mp3",
+          "ringtone": "ringtone.mp3"
+        }
+      ],
+      [
+        "@zegocloud/zego-uikit-signaling-plugin-rn",
+        {
           "android": {
-            "showNotification": true
+            "permission": "POST_NOTIFICATIONS"
           }
         }
       ]
@@ -60,19 +65,9 @@
         "WAKE_LOCK",
         "DISABLE_KEYGUARD",
         "INTERNET",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
         "SYSTEM_ALERT_WINDOW",
-        "BLUETOOTH_CONNECT",
         "POST_NOTIFICATIONS",
         "READ_PHONE_STATE"
-      ],
-      "intentFilters": [
-        {
-          "action": "VIEW",
-          "data": { "scheme": "https" },
-          "category": ["BROWSABLE", "DEFAULT"]
-        }
       ]
     },
     "ios": {
