@@ -32,7 +32,7 @@
       [
         "@zegocloud/zego-uikit-prebuilt-call-rn",
         {
-          "ringtone": "./ringtone.mp3"
+          "ringtone": "ringtone.mp3"
         }
       ],
       [
@@ -73,9 +73,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.oasis.app2026",
       "infoPlist": {
-        "NSCameraUsageDescription": "نحتاج للوصول للكاميرا لالتقاط صور الحالة وإجراء مكالمات الفيديو.",
-        "NSMicrophoneUsageDescription": "نحتاج للوصول للميكروفون لتسجيل الرسائل الصوتية وإجراء المكالمات.",
-        "NSPhotoLibraryUsageDescription": "نحتاج للوصول لمكتبة الصور لتتمكن من اختيار ومشاركة الصور وتغيير بروفايلك.",
+        "NSCameraUsageDescription": "نحتاج للوصول للكاميرا لإجراء مكالمات الفيديو.",
+        "NSMicrophoneUsageDescription": "نحتاج للميكروفون لإجراء المكالمات.",
+        "NSPhotoLibraryUsageDescription": "نحتاج للوصول لمكتبة الصور لمشاركة صورك.",
         "UIBackgroundModes": [
           "voip",
           "audio",
