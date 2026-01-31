@@ -3,7 +3,7 @@ name: Oasis App Build
 on:
   push:
     branches:
-      - main
+      - main  # تأكد أن اسم الفرع هنا يطابق فرعك الأساسي
   workflow_dispatch:
 
 jobs:
@@ -18,11 +18,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          # حذفنا سطر الكاش هنا لتجاوز مشكلة الـ lock file المفقود
+          # تم حذف الكاش لتجنب خطأ Lock file not found
 
-      - name: 3. Reset and Install (The Ultimate Fix)
+      - name: 3. Clean and Forced Install
         run: |
+          echo "Cleaning environment..."
           npm cache clean --force
+          rm -rf node_modules package-lock.json
+          echo "Installing dependencies with legacy-peer-deps..."
           npm install --legacy-peer-deps
 
       - name: 4. Setup EAS CLI
@@ -33,9 +36,10 @@ jobs:
 
       - name: 5. Build Android APK
         run: |
+          # تأكد أنك تملك بروفايل preview في ملف eas.json
           eas build --platform android --profile preview --local
 
-      - name: 6. Upload Result
+      - name: 6. Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Oasis-App-APK
