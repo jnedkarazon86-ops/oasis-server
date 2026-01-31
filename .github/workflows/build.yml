@@ -18,14 +18,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          # استخدام الكاش المدمج بدلاً من المسح اليدوي لتوفير الوقت والمساحة
-          cache: 'npm'
+          # تمت إزالة سطر cache: 'npm' لحل الخطأ الظاهر في سجلات GitHub
 
       - name: 3. Install Dependencies
         run: |
-          echo "Installing dependencies for Oasis..."
-          # تم حذف npm cache clean و rm -rf لتجنب استهلاك موارد القرص
-          # --legacy-peer-deps ضرورية جداً لمشاكل التوافق في Expo
+          echo "Generating lock file and installing dependencies..."
+          # هذا الأمر سيقوم بإنشاء package-lock.json داخلياً أثناء البناء
           npm install --legacy-peer-deps
 
       - name: 4. Setup EAS CLI
@@ -36,16 +34,13 @@ jobs:
 
       - name: 5. Build Android APK
         run: |
-          # إضافة --non-interactive لمنع توقف البناء بانتظار إدخال يدوي
-          # تنبيه: البناء المحلي (--local) قد يفشل إذا نفدت ذاكرة الخادم (RAM)
+          # إضافة --non-interactive لضمان استمرار البناء تلقائياً
           eas build --platform android --profile preview --local --non-interactive
 
       - name: 6. Upload Final APK
-        if: always() # لضمان محاولة رفع الملف حتى لو فشلت الخطوات جزئياً
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: Oasis-App-APK
-          # استخدام النجمة المزدوجة للبحث في كل المجلدات لأن EAS قد يغير مسار المخرج
           path: "**/*.apk"
-          # في حال لم يجد ملف APK، لن يفشل الـ Workflow بالكامل
-          if-no-files-found: warn
+          if-no-files-found: error
