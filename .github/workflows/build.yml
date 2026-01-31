@@ -19,14 +19,14 @@ jobs:
         with:
           node-version: '18'
 
-      - name: 3. Nuclear Reset and Install
+      - name: 3. Final Reset and Force Install
         run: |
-          echo "Removing old locks and modules..."
+          echo "Cleaning environment for Oasis..."
           rm -rf node_modules package-lock.json
           npm cache clean --force
-          echo "Installing dependencies with force and legacy-peer-deps..."
-          # استخدام --force يحل مشكلة ETARGET عبر جلب المتاح فعلياً
-          npm install --force --legacy-peer-deps
+          echo "Installing corrected ZegoCloud libraries..."
+          # استخدام --legacy-peer-deps أساسي هنا لدمج ZegoCloud مع Expo
+          npm install --legacy-peer-deps
 
       - name: 4. Setup EAS CLI
         uses: expo/expo-github-action@v8
@@ -34,11 +34,11 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 5. Build Android APK
+      - name: 5. Build Android APK Locally
         run: |
           eas build --platform android --profile preview --local
 
-      - name: 6. Upload Result
+      - name: 6. Upload Final APK
         uses: actions/upload-artifact@v4
         with:
           name: Oasis-App-APK
