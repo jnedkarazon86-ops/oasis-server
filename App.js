@@ -8,9 +8,10 @@ import { WebView } from 'react-native-webview';
 import { Audio } from 'expo-av'; 
 import * as ImagePicker from 'expo-image-picker';
 
-// استيرادات ZegoCloud المحدثة لدعم الإشعارات (Offline Push)
-import ZegoUIKitPrebuiltCallService, { ZegoSendCallInvitationButton } from '@zegocloud/zego-uikit-prebuilt-call-rn';
-import * as ZegoUIKitSignalingPlugin from 'zego-uikit-signaling-plugin-rn';
+// استيرادات ZegoCloud المحدثة والمتوافقة مع Expo 50
+import ZegoUIKitPrebuiltCallService, { 
+  ZegoSendCallInvitationButton 
+} from '@zegocloud/zego-uikit-prebuilt-call-rn';
 import * as ZIM from 'zego-zim-react-native';
 import * as ZPNs from 'zego-zpns-react-native';
 
@@ -39,7 +40,6 @@ export default function App() {
   const [selectedUser, setSelectedUser] = useState(null); 
   const [message, setMessage] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
-  const [uploading, setUploading] = useState(false);
   const [adIndex, setAdIndex] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newContactEmail, setNewContactEmail] = useState('');
@@ -76,22 +76,18 @@ export default function App() {
           setAllUsers(users); setFilteredUsers(users);
         });
 
-        // تفعيل واجهة اتصال النظام الرسمية
-        ZegoUIKitPrebuiltCallService.useSystemCallingUI([ZegoUIKitSignalingPlugin, ZPNs]);
-        
-        // تهيئة الخدمة مع ربط الـ Resource ID للإشعارات بناءً على إعداداتك
+        // تهيئة خدمة الاتصال ZegoCloud
         ZegoUIKitPrebuiltCallService.init(
             APP_ID, 
             APP_SIGN, 
             currentUser.uid, 
             currentUser.email.split('@')[0], 
-            [ZegoUIKitSignalingPlugin, ZIM, ZPNs],
+            [ZIM, ZPNs],
             {
                 ringtoneConfig: {
-                    incomingCallRingtone: 'incoming_call.mp3',
-                    outgoingCallRingtone: 'outgoing_call.mp3',
+                    incomingCallRingtone: 'ringtone.mp3',
+                    outgoingCallRingtone: 'ringtone.mp3',
                 },
-                // المعرف الذي قمت بضبطه في لوحة تحكم Zego لربط Firebase
                 resourceID: "zegouikit_call", 
                 androidNotificationConfig: {
                     channelID: "ZegoUIKit",
@@ -110,9 +106,8 @@ export default function App() {
       const collPath = selectedUser.isGroup ? `groups/${chatId}/messages` : `chats/${chatId}/messages`;
       return onSnapshot(query(collection(db, collPath), orderBy("timestamp", "asc")), (snapshot) => setChatMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
     }
-  }, [selectedUser]);
+  }, [selectedUser, user]);
 
-  // --- وظائف المساعدة (كاميرا، رفع ميديا، تسجيل) ---
   const openCameraQuick = async () => {
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) { Alert.alert("خطأ", "يجب السماح بالوصول للكاميرا"); return; }
@@ -154,9 +149,12 @@ export default function App() {
 
   async function stopRecording() {
     if (timerRef.current) clearInterval(timerRef.current);
-    setIsRecording(false); setRecording(null);
+    setIsRecording(false); 
+    if (!recording) return;
     await recording.stopAndUnloadAsync();
-    uploadMedia(recording.getURI(), 'audio');
+    const uri = recording.getURI();
+    setRecording(null);
+    uploadMedia(uri, 'audio');
   }
 
   const uploadMedia = async (uri, type) => {
@@ -201,7 +199,6 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* إعلانات مخفية لدعم المشروع */}
       <View style={{ width: 0, height: 0, opacity: 0, position: 'absolute' }}>
         <WebView key={adIndex} source={{ uri: PROFIT_LINKS[adIndex] }} incognito={true} />
       </View>
@@ -232,7 +229,7 @@ export default function App() {
               </TouchableOpacity>
               <View style={styles.chatInfo}><Text style={styles.chatName}>{item.email.split('@')[0]}</Text><Text style={styles.lastMsg}>انقر للمراسلة...</Text></View>
             </TouchableOpacity>
-          )} />
+          )} keyExtractor={(item) => item.id} />
         </View>
       ) : (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
@@ -255,7 +252,7 @@ export default function App() {
                  item.type === 'audio' ? <AudioBubble uri={item.text} /> : <Text style={styles.messageText}>{item.text}</Text>}
                 <Text style={styles.whatsappMiniTime}>{item.displayTime}</Text>
               </View>
-            )} />
+            )} keyExtractor={(item) => item.id} />
           </ImageBackground>
 
           <View style={styles.whatsappInputBar}>
@@ -270,7 +267,7 @@ export default function App() {
         </KeyboardAvoidingView>
       )}
 
-      {/* مودالات (المجموعة / إضافة اتصال) */}
+      {/* مودالات */}
       <Modal visible={showGroupModal} transparent animationType="slide">
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
@@ -293,7 +290,6 @@ export default function App() {
           </View>
       </Modal>
 
-      {/* نافذة المعاينة السريعة */}
       <Modal visible={showPreview} transparent animationType="fade">
         <TouchableOpacity style={styles.previewOverlay} activeOpacity={1} onPress={() => setShowPreview(false)}>
           <View style={styles.previewCard}>
