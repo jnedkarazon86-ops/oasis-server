@@ -21,6 +21,8 @@ jobs:
 
       - name: 3. Install Dependencies
         run: |
+          echo "Installing dependencies..."
+          # استخدام --legacy-peer-deps ضروري لدمج المكتبات المختلفة
           npm install --legacy-peer-deps
 
       - name: 4. Setup EAS CLI
@@ -29,8 +31,8 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 5. Build Android APK
+      - name: 5. Build on Expo Cloud
         run: |
-          # أضفنا EXPO_NO_TELEMETRY لتقليل استهلاك الذاكرة
-          # واستخدمنا الأمر المباشر للبناء المحلي
-          eas build --platform android --profile preview --local --non-interactive
+          # الرفع للسحابة يضمن بناء جميع الملفات (App.js, assets, server.py الخ)
+          # البناء السحابي هو الحل الوحيد لمشكلة "Config Plugin" في ZegoCloud
+          eas build --platform android --profile preview --non-interactive
