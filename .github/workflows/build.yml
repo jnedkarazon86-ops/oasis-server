@@ -19,12 +19,12 @@ jobs:
         with:
           node-version: '18'
 
-      - name: 3. Fix and Install Dependencies
+      - name: 3. Nuclear Install and Fix
         run: |
-          echo "Installing dependencies and fixing Config Plugins..."
-          # استخدام legacy-peer-deps لتجنب تعارضات النسخ
-          npm install --legacy-peer-deps
-          # هذا السطر سيقوم بإصلاح أي خلل في توصيف ZegoCloud تلقائياً
+          echo "Resolving dependency conflicts..."
+          # استخدام --force مع legacy-peer-deps يحل تعارض ZegoCloud الظاهر في السجلات
+          npm install --legacy-peer-deps --force
+          # تحديث ملفات الإعداد لـ Expo لضمان عمل الـ Plugins
           npx expo install --fix
 
       - name: 4. Setup EAS CLI
@@ -35,6 +35,5 @@ jobs:
 
       - name: 5. Build on Expo Cloud
         run: |
-          # الرفع للسحابة يضمن دمج كافة الأصول والملفات
-          # وتجاوز أخطاء الذاكرة والـ Import المحلية
+          # الرفع للسحابة يضمن دمج (App.js, assets, server.py, ringtone.mp3)
           eas build --platform android --profile preview --non-interactive
