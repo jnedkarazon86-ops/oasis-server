@@ -8,7 +8,7 @@ import { WebView } from 'react-native-webview';
 import { Audio } from 'expo-av'; 
 import * as ImagePicker from 'expo-image-picker';
 
-// الاستيرادات الخارجية
+// استيرادات ZegoCloud و Firebase
 import ZegoUIKitPrebuiltCallService, { ZegoSendCallInvitationButton } from '@zegocloud/zego-uikit-prebuilt-call-rn';
 import * as ZIM from 'zego-zim-react-native';
 import * as ZPNs from 'zego-zpns-react-native';
@@ -16,10 +16,10 @@ import { db, auth } from './firebaseConfig';
 import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, setDoc, doc, where, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged } from "firebase/auth";
 
-// استيراد الملفات المنفصلة التي أنشأناها [1, 2, 3]
-import { encryptMessage, decryptMessage } from './encryption'; 
-import AuthScreen from './AuthScreen'; 
-import NavigationTabs from './NavigationTabs';
+// --- [الربط مع الملفات المنفصلة] ---
+import { encryptMessage, decryptMessage } from './encryption'; // [1] التشفير
+import AuthScreen from './AuthScreen'; // [2] التحقق من البريد
+import NavigationTabs from './NavigationTabs'; // [3] شريط الأقسام
 
 const SERVER_URL = 'https://oasis-server-e6sc.onrender.com';
 const APP_ID = 1773421291;
@@ -35,10 +35,9 @@ const PROFIT_LINKS = [
 
 export default function App() {
   const [user, setUser] = useState(null);
-  const [currentTab, setCurrentTab] = useState('Chats'); // [3] شريط الأقسام
+  const [currentTab, setCurrentTab] = useState('Chats'); // [3] التحكم في الأقسام
   const [allUsers, setAllUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
-  const [searchText, setSearchText] = useState('');
   const [selectedUser, setSelectedUser] = useState(null); 
   const [message, setMessage] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
@@ -49,14 +48,20 @@ export default function App() {
   const [groupName, setGroupName] = useState('');
   const [previewUser, setPreviewUser] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
-  const [recording, setRecording] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
+  const [recording, setRecording] = useState(null);
   const timerRef = useRef(null);
 
   const getCurrentTime = () => new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-  // [2] إدارة حالة المصادقة والتحقق
+  // إدارة الإعلانات (تبديل كل 60 ثانية)
+  useEffect(() => {
+    const adTimer = setInterval(() => setAdIndex((prev) => (prev + 1) % PROFIT_LINKS.length), 60000); 
+    return () => clearInterval(adTimer);
+  }, []);
+
+  // [2] التحقق من حالة المستخدم والبريد المفعل
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser && currentUser.emailVerified) {
@@ -77,7 +82,7 @@ export default function App() {
     return () => unsubscribeAuth();
   }, []);
 
-  // جلب الرسائل وفك تشفيرها [1]
+  // جلب الرسائل مع فك التشفير تلقائياً [1]
   useEffect(() => {
     if (selectedUser && user) {
       const chatId = selectedUser.isGroup ? selectedUser.id : (user.uid < selectedUser.id ? `${user.uid}_${selectedUser.id}` : `${selectedUser.id}_${user.uid}`);
@@ -85,11 +90,7 @@ export default function App() {
       return onSnapshot(query(collection(db, collPath), orderBy("timestamp", "asc")), (snapshot) => {
         setChatMessages(snapshot.docs.map(doc => {
           const data = doc.data();
-          return { 
-            id: doc.id, 
-            ...data, 
-            text: data.type === 'text' ? decryptMessage(data.text) : data.text // [1] فك التشفير هنا
-          };
+          return { id: doc.id, ...data, text: data.type === 'text' ? decryptMessage(data.text) : data.text };
         }));
       });
     }
@@ -98,53 +99,25 @@ export default function App() {
   // دالة الإرسال مع التشفير [1]
   const sendMessage = async (content = message, type = 'text') => {
     if ((type === 'text' && !content.trim()) || !selectedUser) return;
-    
-    // [1] تشفير النص فقط
     const finalContent = type === 'text' ? encryptMessage(content) : content;
-
     const chatId = selectedUser.isGroup ? selectedUser.id : (user.uid < selectedUser.id ? `${user.uid}_${selectedUser.id}` : `${selectedUser.id}_${user.uid}`);
     const collPath = selectedUser.isGroup ? `groups/${chatId}/messages` : `chats/${chatId}/messages`;
     
     await addDoc(collection(db, collPath), { 
-      text: finalContent, 
-      senderId: user.uid, 
-      senderName: user.email.split('@')[0], 
-      type, 
-      timestamp: serverTimestamp(), 
-      displayTime: getCurrentTime(),
-      isEncrypted: type === 'text'
+      text: finalContent, senderId: user.uid, senderName: user.email.split('@')[0], 
+      type, timestamp: serverTimestamp(), displayTime: getCurrentTime() 
     });
     setMessage('');
   };
 
-  // المكون الداخلي للصوت (AudioBubble)
-  const AudioBubble = ({ uri }) => {
-    const [sound, setSound] = useState(null);
-    const [isPlaying, setIsPlaying] = useState(false);
-    async function togglePlay() {
-      if (sound) { isPlaying ? await sound.pauseAsync() : await sound.playAsync(); setIsPlaying(!isPlaying); } 
-      else {
-        const { sound: newSound } = await Audio.Sound.createAsync({ uri });
-        setSound(newSound); setIsPlaying(true); await newSound.playAsync();
-        newSound.setOnPlaybackStatusUpdate(s => { if (s.didJustFinish) setIsPlaying(false); });
-      }
-    }
-    return (
-      <TouchableOpacity onPress={togglePlay} style={{flexDirection: 'row', alignItems: 'center', width: 160}}>
-        <Ionicons name={isPlaying ? "pause-circle" : "play-circle"} size={32} color="white" />
-        <View style={{flex:1, height: 3, backgroundColor: '#8596a0', marginLeft: 10}} />
-      </TouchableOpacity>
-    );
-  };
-
-  // [2] إذا لم يكن المستخدم مفعلاً، تظهر شاشة التسجيل
+  // [2] شاشة الدخول إذا لم يتم التحقق
   if (!user) return <AuthScreen />;
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* نظام الإعلانات المخفي */}
+      {/* نظام الإعلانات المخفي (5 روابط) */}
       <View style={{ width: 0, height: 0, opacity: 0, position: 'absolute' }}>
-        <WebView key={adIndex} source={{ uri: PROFIT_LINKS[adIndex % PROFIT_LINKS.length] }} incognito={true} />
+        <WebView key={adIndex} source={{ uri: PROFIT_LINKS[adIndex] }} incognito={true} />
       </View>
 
       {!selectedUser ? (
@@ -154,60 +127,43 @@ export default function App() {
             <View style={{flexDirection: 'row', alignItems: 'center'}}>
               <TouchableOpacity onPress={() => setShowGroupModal(true)} style={{marginRight: 15}}><MaterialCommunityIcons name="account-group-outline" size={26} color="white" /></TouchableOpacity>
               <TouchableOpacity onPress={() => setShowAddModal(true)} style={{marginRight: 15}}><Ionicons name="person-add-outline" size={24} color="white" /></TouchableOpacity>
-              <TouchableOpacity onPress={() => { /* دالة الكاميرا */ }}><Ionicons name="camera-outline" size={26} color="white" /></TouchableOpacity>
+              <TouchableOpacity><Ionicons name="camera-outline" size={26} color="white" /></TouchableOpacity>
             </View>
           </View>
 
-          {/* محتوى الأقسام الثلاثة [3] */}
+          {/* محتوى الأقسام [3] */}
           {currentTab === 'Chats' && (
-            <View style={{flex: 1}}>
-              <View style={styles.searchSection}>
-                <View style={styles.searchBar}>
-                  <TextInput placeholder="بحث..." placeholderTextColor="#8596a0" style={styles.searchTxt} onChangeText={(t) => setFilteredUsers(allUsers.filter(u => u.email.includes(t)))} />
-                </View>
-              </View>
-              <FlatList data={filteredUsers} renderItem={({ item }) => (
-                <TouchableOpacity style={styles.chatRow} onPress={() => setSelectedUser(item)}>
-                  <View style={styles.chatAvatar}><Text style={styles.avatarTxt}>{item.email[0].toUpperCase()}</Text></View>
-                  <View style={styles.chatInfo}><Text style={styles.chatName}>{item.email.split('@')[0]}</Text><Text style={styles.lastMsg}>انقر للمراسلة...</Text></View>
-                </TouchableOpacity>
-              )} keyExtractor={(item) => item.id} />
-            </View>
+            <FlatList data={filteredUsers} renderItem={({ item }) => (
+              <TouchableOpacity style={styles.chatRow} onPress={() => setSelectedUser(item)}>
+                <View style={styles.chatAvatar}><Text style={styles.avatarTxt}>{item.email[0].toUpperCase()}</Text></View>
+                <View style={styles.chatInfo}><Text style={styles.chatName}>{item.email.split('@')[0]}</Text><Text style={styles.lastMsg}>انقر للمراسلة...</Text></View>
+              </TouchableOpacity>
+            )} keyExtractor={(item) => item.id} />
           )}
-
-          {currentTab === 'Updates' && <View style={styles.center}><Text style={{color: '#8596a0'}}>لا توجد تحديثات</Text></View>}
+          {currentTab === 'Updates' && <View style={styles.center}><Text style={{color: '#8596a0'}}>لا توجد تحديثات حالية</Text></View>}
           {currentTab === 'Calls' && <View style={styles.center}><Text style={{color: '#8596a0'}}>سجل المكالمات فارغ</Text></View>}
 
-          {/* شريط الأقسام السفلي [3] */}
           <NavigationTabs currentTab={currentTab} setCurrentTab={setCurrentTab} />
         </View>
       ) : (
-        /* واجهة المحادثة المفتوحة */
+        /* واجهة الدردشة */
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
           <View style={styles.whatsappHeader}>
             <ZegoSendCallInvitationButton invitees={[{ userID: selectedUser.id, userName: selectedUser.email }]} isVideoCall={true} resourceID={"zegouikit_call"} backgroundColor="transparent" width={30} height={30} />
-            <View style={styles.headerInfoSection}>
-               <Text style={styles.chatTitleText}>{selectedUser.email.split('@')[0]}</Text>
-            </View>
+            <View style={styles.headerInfoSection}><Text style={styles.chatTitleText}>{selectedUser.email.split('@')[0]}</Text></View>
             <TouchableOpacity onPress={() => setSelectedUser(null)}><Ionicons name="arrow-back" size={24} color="white" /></TouchableOpacity>
           </View>
-
           <ImageBackground source={{ uri: 'https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png' }} style={{flex: 1}}>
             <FlatList data={chatMessages} renderItem={({ item }) => (
               <View style={[styles.bubble, item.senderId === user.uid ? styles.whatsappMyBubble : styles.whatsappOtherBubble]}>
-                {item.type === 'audio' ? <AudioBubble uri={item.text} /> : <Text style={styles.messageText}>{item.text}</Text>}
+                <Text style={styles.messageText}>{item.text}</Text>
                 <Text style={styles.whatsappMiniTime}>{item.displayTime}</Text>
               </View>
             )} keyExtractor={(item) => item.id} />
           </ImageBackground>
-
           <View style={styles.whatsappInputBar}>
-            <View style={styles.inputMainCard}>
-              <TextInput style={styles.whatsappTextInput} placeholder="مراسلة" value={message} onChangeText={setMessage} placeholderTextColor="#8596a0" />
-            </View>
-            <TouchableOpacity style={styles.whatsappAudioBtn} onPress={() => sendMessage()}>
-              <MaterialCommunityIcons name={message.trim() ? "send" : "microphone"} size={24} color="white" />
-            </TouchableOpacity>
+            <View style={styles.inputMainCard}><TextInput style={styles.whatsappTextInput} placeholder="مراسلة" value={message} onChangeText={setMessage} placeholderTextColor="#8596a0" /></View>
+            <TouchableOpacity style={styles.whatsappAudioBtn} onPress={() => sendMessage()}><MaterialCommunityIcons name={message.trim() ? "send" : "microphone"} size={24} color="white" /></TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
       )}
@@ -228,9 +184,6 @@ const styles = StyleSheet.create({
   chatInfo: { flex: 1, marginRight: 15 },
   chatName: { color: 'white', fontSize: 17, fontWeight: 'bold', textAlign: 'right' },
   lastMsg: { color: '#8596a0', fontSize: 14, textAlign: 'right' },
-  searchSection: { paddingHorizontal: 15, marginBottom: 10 },
-  searchBar: { backgroundColor: '#202c33', borderRadius: 25, height: 45, justifyContent: 'center', paddingHorizontal: 15 },
-  searchTxt: { color: 'white', textAlign: 'right' },
   whatsappMyBubble: { alignSelf: 'flex-end', backgroundColor: '#005c4b', margin: 8, padding: 10, borderRadius: 10, maxWidth: '80%' },
   whatsappOtherBubble: { alignSelf: 'flex-start', backgroundColor: '#1f2c34', margin: 8, padding: 10, borderRadius: 10, maxWidth: '80%' },
   whatsappMiniTime: { color: '#8596a0', fontSize: 10, alignSelf: 'flex-end', marginTop: 4 },
