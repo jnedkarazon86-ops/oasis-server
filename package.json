@@ -16,7 +16,7 @@
     "@zegocloud/zego-uikit-prebuilt-call-rn": "6.6.8",
     "@zegocloud/zego-uikit-rn": "6.6.8",
     "@zegocloud/zego-uikit-signaling-plugin-rn": "2.8.3",
-    "zego-zim-react-native": "2.12.0",
+    "zego-zim-react-native": "1.3.8",
     "zego-zpns-react-native": "2.6.0",
     "expo-av": "~13.10.5",
     "firebase": "^10.8.0",
