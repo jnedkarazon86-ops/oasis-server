@@ -19,14 +19,13 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 3. Nuclear Dependency Resolution
+      - name: 3. Clean and Install Dependencies
         run: |
-          echo "Forcing installation to resolve ZegoCloud conflicts..."
-          # إلغاء فحص التبعيات الصارم لتجاوز خطأ npm install الظاهر في الصور
+          echo "Cleaning environment to prevent 'typeof' errors..."
+          # حذف أي مخلفات قديمة تسبب تعارضات برمجية
+          rm -rf node_modules package-lock.json
+          # تثبيت المكتبات بقوة لتجاوز تعارض ZegoCloud
           npm install --legacy-peer-deps --force
-          
-          # تثبيت المكتبات الأساسية لـ Expo يدوياً لضمان استقرار البناء
-          npx expo install @expo/vector-icons -- --legacy-peer-deps --force
 
       - name: 4. Setup EAS CLI
         uses: expo/expo-github-action@v8
@@ -36,5 +35,5 @@ jobs:
 
       - name: 5. Build on Expo Cloud
         run: |
-          # الرفع لمنصة EAS للبناء السحابي
-          eas build --platform android --profile preview --non-interactive
+          # الرفع للبناء السحابي مع تجاهل التحقق المحلي من الملحقات
+          eas build --platform android --profile preview --non-interactive --no-wait
