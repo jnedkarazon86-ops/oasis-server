@@ -19,12 +19,12 @@ jobs:
         with:
           node-version: '18'
 
-      - name: 3. Final Reset and Force Install
+      - name: 3. Nuclear Reset and Install
         run: |
           echo "Cleaning environment for Oasis..."
           rm -rf node_modules package-lock.json
           npm cache clean --force
-          echo "Installing corrected ZegoCloud libraries..."
+          echo "Installing dependencies with legacy-peer-deps..."
           # استخدام --legacy-peer-deps أساسي هنا لدمج ZegoCloud مع Expo
           npm install --legacy-peer-deps
 
@@ -34,7 +34,7 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 5. Build Android APK Locally
+      - name: 5. Build Android APK
         run: |
           eas build --platform android --profile preview --local
 
