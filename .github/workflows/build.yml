@@ -18,20 +18,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: 3. Nuclear Dependency Resolution
         run: |
-          echo "Cleaning environment and forcing installation..."
-          # حذف ملف lock لضمان عدم وجود قيود قديمة
-          rm -f package-lock.json
-          
-          # تثبيت المكتبات مع تجاهل تام لتضارب الـ Peer Dependencies
+          echo "Forcing installation to resolve ZegoCloud conflicts..."
+          # إلغاء فحص التبعيات الصارم لتجاوز خطأ npm install الظاهر في الصور
           npm install --legacy-peer-deps --force
           
-          # تجنب استخدام expo install --fix لأنه هو من يعيد التضارب
-          # بدلاً من ذلك، نثبت الأيقونات مباشرة
-          npm install @expo/vector-icons --legacy-peer-deps --force
+          # تثبيت المكتبات الأساسية لـ Expo يدوياً لضمان استقرار البناء
+          npx expo install @expo/vector-icons -- --legacy-peer-deps --force
 
       - name: 4. Setup EAS CLI
         uses: expo/expo-github-action@v8
@@ -41,5 +36,5 @@ jobs:
 
       - name: 5. Build on Expo Cloud
         run: |
-          # الرفع للبناء مع تجاوز فحص الصلاحية المحلي (لأن EAS سيعيد التثبيت سحابياً)
+          # الرفع لمنصة EAS للبناء السحابي
           eas build --platform android --profile preview --non-interactive
