@@ -12,81 +12,40 @@
       "resizeMode": "contain",
       "backgroundColor": "#0b141a"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "plugins": [
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "اسمح لواحة Oasis بالوصول إلى صورك لتغيير صورة ملفك الشخصي ومشاركتها مع أصدقائك.",
-          "cameraPermission": "يسمح لك التطبيق باستخدام الكاميرا لالتقاط الصور وتحديث حالتك وإجراء مكالمات الفيديو."
-        }
-      ],
-      [
-        "expo-av",
-        {
-          "microphonePermission": "نحتاج للوصول للميكروفون لتسجيل الرسائل الصوتية وإجراء المكالمات."
-        }
-      ],
-      [
-        "@zegocloud/zego-uikit-prebuilt-call-rn",
-        {
-          "ringtone": "./ringtone.mp3"
-        }
-      ],
-      [
-        "@zegocloud/zego-uikit-signaling-plugin-rn",
-        {
-          "android": {
-            "permission": "POST_NOTIFICATIONS"
-          }
-        }
-      ]
+      ["expo-image-picker", {
+        "photosPermission": "اسمح لواحة Oasis بالوصول إلى صورك.",
+        "cameraPermission": "يسمح لك التطبيق باستخدام الكاميرا."
+      }],
+      ["expo-av", { "microphonePermission": "نحتاج للوصول للميكروفون." }],
+      ["@zegocloud/zego-uikit-prebuilt-call-rn", {
+        "ringtone": "ringtone.mp3" 
+      }],
+      ["@zegocloud/zego-uikit-signaling-plugin-rn", {
+        "android": { "permission": "POST_NOTIFICATIONS" }
+      }]
     ],
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0b141a"
-      },
       "package": "com.oasis.app2026",
       "googleServicesFile": "./google-services.json",
       "permissions": [
-        "CAMERA",
-        "RECORD_AUDIO",
-        "MODIFY_AUDIO_SETTINGS",
-        "ACCESS_WIFI_STATE",
-        "ACCESS_NETWORK_STATE",
-        "USE_FULL_SCREEN_INTENT",
-        "SCHEDULE_EXACT_ALARM",
-        "VIBRATE",
-        "FOREGROUND_SERVICE",
-        "WAKE_LOCK",
-        "DISABLE_KEYGUARD",
-        "INTERNET",
-        "SYSTEM_ALERT_WINDOW",
-        "POST_NOTIFICATIONS",
-        "READ_PHONE_STATE"
+        "CAMERA", "RECORD_AUDIO", "MODIFY_AUDIO_SETTINGS", "ACCESS_WIFI_STATE",
+        "ACCESS_NETWORK_STATE", "USE_FULL_SCREEN_INTENT", "SCHEDULE_EXACT_ALARM",
+        "VIBRATE", "FOREGROUND_SERVICE", "WAKE_LOCK", "DISABLE_KEYGUARD",
+        "INTERNET", "SYSTEM_ALERT_WINDOW", "POST_NOTIFICATIONS", "READ_PHONE_STATE"
       ]
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.oasis.app2026",
       "infoPlist": {
-        "NSCameraUsageDescription": "نحتاج للوصول للكاميرا لالتقاط صور الحالة وإجراء مكالمات الفيديو.",
-        "NSMicrophoneUsageDescription": "نحتاج للوصول للميكروفون لتسجيل الرسائل الصوتية وإجراء المكالمات.",
-        "NSPhotoLibraryUsageDescription": "نحتاج للوصول لمكتبة الصور لتتمكن من اختيار ومشاركة الصور وتغيير بروفايلك.",
-        "UIBackgroundModes": [
-          "voip",
-          "audio",
-          "fetch"
-        ]
+        "NSCameraUsageDescription": "نحتاج للكاميرا للمكالمات.",
+        "NSMicrophoneUsageDescription": "نحتاج للميكروفون للمكالمات.",
+        "NSPhotoLibraryUsageDescription": "نحتاج للصور.",
+        "UIBackgroundModes": ["voip", "audio", "fetch"]
       }
     },
-    "extra": {
-      "eas": {
-        "projectId": "742d678c-90bd-4cf1-b261-604691b3cf53"
-      }
-    }
+    "extra": { "eas": { "projectId": "742d678c-90bd-4cf1-b261-604691b3cf53" } }
   }
 }
