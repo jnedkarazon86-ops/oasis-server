@@ -32,7 +32,7 @@
       [
         "@zegocloud/zego-uikit-prebuilt-call-rn",
         {
-          "ringtone": "ringtone.mp3"
+          "ringtone": "./ringtone.mp3"
         }
       ],
       [
