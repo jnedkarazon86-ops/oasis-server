@@ -3,7 +3,7 @@ name: Oasis App Build
 on:
   push:
     branches:
-      - main  # تأكد أن اسم الفرع هنا يطابق فرعك الأساسي
+      - main
   workflow_dispatch:
 
 jobs:
@@ -18,15 +18,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          # تم حذف الكاش لتجنب خطأ Lock file not found
 
-      - name: 3. Clean and Forced Install
+      - name: 3. Nuclear Reset and Install
         run: |
-          echo "Cleaning environment..."
-          npm cache clean --force
+          echo "Removing old locks and modules..."
           rm -rf node_modules package-lock.json
-          echo "Installing dependencies with legacy-peer-deps..."
-          npm install --legacy-peer-deps
+          npm cache clean --force
+          echo "Installing dependencies with force and legacy-peer-deps..."
+          # استخدام --force يحل مشكلة ETARGET عبر جلب المتاح فعلياً
+          npm install --force --legacy-peer-deps
 
       - name: 4. Setup EAS CLI
         uses: expo/expo-github-action@v8
@@ -36,10 +36,9 @@ jobs:
 
       - name: 5. Build Android APK
         run: |
-          # تأكد أنك تملك بروفايل preview في ملف eas.json
           eas build --platform android --profile preview --local
 
-      - name: 6. Upload APK Artifact
+      - name: 6. Upload Result
         uses: actions/upload-artifact@v4
         with:
           name: Oasis-App-APK
