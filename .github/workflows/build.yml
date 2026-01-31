@@ -21,8 +21,8 @@ jobs:
 
       - name: 3. Nuclear Install and Fix
         run: |
-          echo "Resolving dependency conflicts..."
-          # استخدام الأحرف الصغيرة وتثبيت المكتبات الأساسية
+          echo "Resolving dependency conflicts forcing install..."
+          # استخدام --legacy-peer-deps يحل تعارض مكتبات ZegoCloud الظاهر في الصورة
           npm install --legacy-peer-deps --force
           npx expo install --fix
 
@@ -34,5 +34,5 @@ jobs:
 
       - name: 5. Build on Expo Cloud
         run: |
-          # التأكد من أن الملفات الضرورية مرفوعة قبل البدء
+          # البدء بالبناء السحابي لإنتاج ملف APK
           eas build --platform android --profile preview --non-interactive
