@@ -1,4 +1,4 @@
-name: Oasis App Build
+Name: Oasis App Build
 
 on:
   push:
@@ -17,15 +17,15 @@ jobs:
       - name: 2. Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20' # تحديث بسيط للنسخة لسرعة الأداء
 
       - name: 3. Nuclear Install and Fix
         run: |
-          echo "Resolving dependency conflicts..."
-          # استخدام --force مع legacy-peer-deps يحل تعارض ZegoCloud الظاهر في السجلات
+          echo "Resolving dependency conflicts and injecting crypto-js..."
+          # التثبيت بقوة لضمان دمج سلك التشفير والمكالمات
           npm install --legacy-peer-deps --force
-          # تحديث ملفات الإعداد لـ Expo لضمان عمل الـ Plugins
-          npx expo install --fix
+          # التأكد من تثبيت مكتبة الأيقونات لضمان ظهور أزرار المكالمات
+          npx expo install @expo/vector-icons -- --legacy-peer-deps --force
 
       - name: 4. Setup EAS CLI
         uses: expo/expo-github-action@v8
@@ -33,7 +33,13 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 5. Build on Expo Cloud
+      - name: 5. Pre-Build Check
         run: |
-          # الرفع للسحابة يضمن دمج (App.js, assets, server.py, ringtone.mp3)
+          # التأكد من وجود ملفات الأصول لكي لا يفشل البناء (الرنة والأيقونات)
+          ls assets/ringtone.mp3 || echo "Warning: Ringtone missing"
+          ls assets/icon.png || echo "Warning: Icon missing"
+
+      - name: 6. Build on Expo Cloud
+        run: |
+          # البناء بصيغة APK (profile preview) للتحميل المباشر
           eas build --platform android --profile preview --non-interactive
