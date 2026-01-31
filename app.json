@@ -29,7 +29,6 @@
           "microphonePermission": "نحتاج للوصول للميكروفون لتسجيل الرسائل الصوتية وإجراء المكالمات."
         }
       ],
-      "react-native-webview",
       [
         "@zegocloud/zego-uikit-prebuilt-call-rn",
         {
@@ -77,7 +76,11 @@
         "NSCameraUsageDescription": "نحتاج للوصول للكاميرا لالتقاط صور الحالة وإجراء مكالمات الفيديو.",
         "NSMicrophoneUsageDescription": "نحتاج للوصول للميكروفون لتسجيل الرسائل الصوتية وإجراء المكالمات.",
         "NSPhotoLibraryUsageDescription": "نحتاج للوصول لمكتبة الصور لتتمكن من اختيار ومشاركة الصور وتغيير بروفايلك.",
-        "UIBackgroundModes": ["voip", "audio", "fetch"]
+        "UIBackgroundModes": [
+          "voip",
+          "audio",
+          "fetch"
+        ]
       }
     },
     "extra": {
