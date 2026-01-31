@@ -15,10 +15,9 @@
     "assetBundlePatterns": ["**/*"],
     "plugins": [
       ["expo-image-picker", {
-        "photosPermission": "اسمح لواحة Oasis بالوصول إلى صورك لرفعها ومشاركتها.",
-        "cameraPermission": "يسمح لك التطبيق باستخدام الكاميرا للمكالمات والتقاط الصور."
+        "photosPermission": "اسمح لواحة Oasis بالوصول إلى صورك."
       }],
-      ["expo-av", { "microphonePermission": "نحتاج للوصول للميكروفون لإجراء المكالمات وتسجيل الصوت." }],
+      ["expo-av", { "microphonePermission": "نحتاج للوصول للميكروفون." }],
       "@zegocloud/zego-uikit-prebuilt-call-rn",
       "@zegocloud/zego-uikit-signaling-plugin-rn"
     ],
@@ -43,9 +42,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.oasis.app2026",
       "infoPlist": {
-        "NSCameraUsageDescription": "نحتاج للكاميرا للمكالمات المرئية.",
-        "NSMicrophoneUsageDescription": "نحتاج للميكروفون للمكالمات الصوتية.",
-        "NSPhotoLibraryUsageDescription": "نحتاج للوصول للصور لمشاركتها مع أصدقائك.",
+        "NSCameraUsageDescription": "نحتاج للكاميرا للمكالمات.",
+        "NSMicrophoneUsageDescription": "نحتاج للميكروفون للمكالمات.",
+        "NSPhotoLibraryUsageDescription": "نحتاج للوصول للصور.",
         "UIBackgroundModes": ["voip", "audio", "fetch"]
       }
     },
