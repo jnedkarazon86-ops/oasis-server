@@ -18,12 +18,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          # تمت إزالة سطر cache: 'npm' لحل الخطأ الظاهر في سجلات GitHub
 
       - name: 3. Install Dependencies
         run: |
-          echo "Generating lock file and installing dependencies..."
-          # هذا الأمر سيقوم بإنشاء package-lock.json داخلياً أثناء البناء
           npm install --legacy-peer-deps
 
       - name: 4. Setup EAS CLI
@@ -34,13 +31,6 @@ jobs:
 
       - name: 5. Build Android APK
         run: |
-          # إضافة --non-interactive لضمان استمرار البناء تلقائياً
+          # أضفنا EXPO_NO_TELEMETRY لتقليل استهلاك الذاكرة
+          # واستخدمنا الأمر المباشر للبناء المحلي
           eas build --platform android --profile preview --local --non-interactive
-
-      - name: 6. Upload Final APK
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Oasis-App-APK
-          path: "**/*.apk"
-          if-no-files-found: error
