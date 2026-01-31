@@ -14,10 +14,26 @@
     },
     "assetBundlePatterns": ["**/*"],
     "plugins": [
-      ["expo-image-picker", {
-        "photosPermission": "اسمح لواحة Oasis بالوصول إلى صورك."
-      }],
-      ["expo-av", { "microphonePermission": "نحتاج للوصول للميكروفون." }],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#ffffff",
+          "sounds": ["./assets/ringtone.wav"]
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "اسمح لواحة Oasis بالوصول إلى صورك."
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "نحتاج للوصول للميكروفون."
+        }
+      ],
       "@zegocloud/zego-uikit-prebuilt-call-rn",
       "@zegocloud/zego-uikit-signaling-plugin-rn"
     ],
@@ -25,12 +41,12 @@
       "package": "com.oasis.app2026",
       "googleServicesFile": "./google-services.json",
       "permissions": [
-        "CAMERA", 
-        "RECORD_AUDIO", 
-        "MODIFY_AUDIO_SETTINGS", 
+        "CAMERA",
+        "RECORD_AUDIO",
+        "MODIFY_AUDIO_SETTINGS",
         "ACCESS_WIFI_STATE",
-        "ACCESS_NETWORK_STATE", 
-        "INTERNET", 
+        "ACCESS_NETWORK_STATE",
+        "INTERNET",
         "POST_NOTIFICATIONS",
         "WAKE_LOCK",
         "READ_EXTERNAL_STORAGE",
@@ -48,6 +64,10 @@
         "UIBackgroundModes": ["voip", "audio", "fetch"]
       }
     },
-    "extra": { "eas": { "projectId": "742d678c-90bd-4cf1-b261-604691b3cf53" } }
+    "extra": {
+      "eas": {
+        "projectId": "742d678c-90bd-4cf1-b261-604691b3cf53"
+      }
+    }
   }
 }
