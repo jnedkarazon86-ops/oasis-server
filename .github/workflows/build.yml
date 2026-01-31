@@ -19,11 +19,13 @@ jobs:
         with:
           node-version: '18'
 
-      - name: 3. Install Dependencies
+      - name: 3. Prepare and Fix Dependencies
         run: |
-          echo "Installing dependencies..."
-          # استخدام --legacy-peer-deps ضروري لدمج المكتبات المختلفة
+          echo "Installing and fixing dependencies..."
+          # تثبيت المكتبات مع معالجة تعارضات ZegoCloud
           npm install --legacy-peer-deps
+          # أمر حيوي لإصلاح الـ Config Plugins الخاصة بـ Expo تلقائياً
+          npx expo install --fix
 
       - name: 4. Setup EAS CLI
         uses: expo/expo-github-action@v8
@@ -33,6 +35,5 @@ jobs:
 
       - name: 5. Build on Expo Cloud
         run: |
-          # الرفع للسحابة يضمن بناء جميع الملفات (App.js, assets, server.py الخ)
-          # البناء السحابي هو الحل الوحيد لمشكلة "Config Plugin" في ZegoCloud
+          # سيقوم برفع (App.js, assets, server.py, ringtone.mp3) للسحابة
           eas build --platform android --profile preview --non-interactive
