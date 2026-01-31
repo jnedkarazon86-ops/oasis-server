@@ -1,29 +1,50 @@
-name: Oasis Build APK
+name: Oasis App Build
+
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main  # أو اسم الفرع الذي تستخدمه (مثلاً master)
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+      - name: 1. Checkout Code
+        uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v3
+      - name: 2. Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: '18'
+          cache: 'npm'
 
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
-
-      - name: Clean Install
-        # استخدام legacy-peer-deps يضمن تخطي تعارضات الإصدارات بين المكتبات
+      - name: 3. Clean and Reset Environment
         run: |
+          echo "Cleaning cache and old files..."
           npm cache clean --force
+          rm -rf node_modules
+          rm -f package-lock.json
+
+      - name: 4. Install Dependencies (The Fix)
+        run: |
+          echo "Installing dependencies with legacy-peer-deps to fix ZegoCloud conflict..."
           npm install --legacy-peer-deps
 
-      - name: Build APK
-        run: eas build --platform android --profile preview --non-interactive
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      - name: 5. Setup EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: 6. Build Android APK (Preview)
+        run: |
+          # تأكد من أن بروفايل preview موجود في eas.json الخاص بك
+          eas build --platform android --profile preview --local
+
+      - name: 7. Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Oasis-Build
+          path: ./*.apk
