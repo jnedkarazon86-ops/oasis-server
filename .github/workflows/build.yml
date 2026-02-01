@@ -20,7 +20,7 @@ jobs:
           node-version: '20'
 
       - name: 3. Prepare Assets
-        # يضمن وجود الصور داخل مجلد التطبيق قبل البناء
+        # يضمن وجود الصور داخل مجلد التطبيق قبل البناء لضمان ظهور الأيقونات
         run: cp -r assets mobile/assets
 
       - name: 4. Setup EAS CLI
@@ -32,12 +32,13 @@ jobs:
       - name: 5. Install Dependencies & Build
         working-directory: mobile
         run: |
-          echo "جاري حل تعارض المكتبات وتثبيت الإضافات..."
-          # استخدام --legacy-peer-deps هو الحل السحري لخطأ ERESOLVE في صورتك الأخيرة
-          npm install --legacy-peer-deps
+          echo "جاري حل تعارض المكتبات بالقوة وتثبيت نظام الاتصال..."
           
-          # تثبيت إضافات التنبيهات الضرورية
-          npx expo install expo-notifications expo-device expo-constants
+          # أضفنا --force لضمان تجاوز أخطاء ERESOLVE التي تظهر في صورتك
+          npm install --legacy-peer-deps --force
           
-          echo "Starting build on Expo Cloud..."
+          # تثبيت إضافات التنبيهات الضرورية والتأكد من توافقها
+          npx expo install expo-notifications expo-device expo-constants -- --force
+          
+          echo "Starting final build on Expo Cloud..."
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
