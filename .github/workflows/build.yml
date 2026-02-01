@@ -1,4 +1,4 @@
-name: Oasis App Build (Fresh Start)
+Name: Oasis App Build (Fresh Start)
 
 on:
   push:
@@ -20,7 +20,6 @@ jobs:
           node-version: '20'
 
       - name: 3. Prepare Assets
-        # بما أن مجلد assets في الخارج، سنقوم بنسخه داخل مجلد mobile ليراه التطبيق
         run: cp -r assets mobile/assets
 
       - name: 4. Setup EAS CLI
@@ -29,13 +28,12 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 5. Build from Mobile Folder
-        # هذا هو التعديل الأهم: إخبار النظام بالدخول لمجلد mobile
+      - name: 5. Install Dependencies & Build
         working-directory: mobile
         run: |
-          echo "Starting fresh build for Oasis App..."
-          # حذف أي مخلفات داخل المجلد إذا وجدت
-          rm -rf node_modules
-          rm -f package-lock.json
-          # بناء التطبيق مع مسح الكاش تماماً
+          # الحل هنا: تثبيت الإضافات المطلوبة يدوياً لضمان وجودها
+          npm install
+          npx expo install expo-notifications expo-device expo-constants
+          
+          echo "Starting build with all plugins resolved..."
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
