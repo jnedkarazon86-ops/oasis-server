@@ -29,22 +29,25 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 5. Install Dependencies & Build
+      - name: 5. Clean & Resolve Dependencies
         working-directory: mobile
         run: |
-          echo "جاري تنظيف الملفات القديمة وحل تعارض المكتبات..."
+          echo "جاري تنظيف الملفات المؤقتة وحل تعارض المكتبات..."
           
-          # حذف مجلدات الكاش والملفات المؤقتة لإنهاء خطأ typeof المتكرر
+          # حذف مجلدات الكاش والملفات المؤقتة لإنهاء خطأ typeof الذي ظهر في السجلات
           rm -rf .expo/
           rm -rf node_modules/
           rm -f package-lock.json
           
-          # تثبيت المكتبات بالقوة لتجاوز تعارض ZegoCloud مع المكتبات الأخرى
+          # تثبيت المكتبات بالقوة لتجاوز تعارض ZegoCloud الذي تسبب في خطأ ERESOLVE سابقا
           npm install --legacy-peer-deps --force
           
-          # تثبيت إضافات التنبيهات والاتصال لضمان عمل الرنين في التطبيق
+          # تثبيت إضافات التنبيهات والاتصال لضمان عمل الرنين وتجاوز تنبيهات Config Plugin
           npx expo install expo-notifications expo-device expo-constants -- --force
-          
-          echo "بدء البناء النهائي على سحابة Expo..."
-          # مسح الكاش من جهة السيرفر لضمان بناء APK سليم وجديد تماماً
+
+      - name: 6. Start Expo Cloud Build
+        working-directory: mobile
+        run: |
+          echo "بدء البناء النهائي على سحابة Expo مع تجاهل التنبيهات غير المؤثرة..."
+          # مسح الكاش من جهة السيرفر لضمان بناء APK سليم وتجاوز رسائل الرجوع للإصدارات القديمة
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
