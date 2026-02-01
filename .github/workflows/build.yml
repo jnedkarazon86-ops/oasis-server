@@ -1,4 +1,4 @@
-Name: Oasis App Build (Fresh Start)
+name: Oasis App Build (Fresh Start)
 
 on:
   push:
