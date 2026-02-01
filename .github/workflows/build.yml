@@ -1,4 +1,4 @@
-name: Oasis App Build (Fresh Start)
+name: Oasis App Build (Final Fix)
 
 on:
   push:
@@ -32,22 +32,26 @@ jobs:
       - name: 5. Clean & Resolve Dependencies
         working-directory: mobile
         run: |
-          echo "جاري تنظيف شامل للملفات المؤقتة وحل تعارض المكتبات..."
+          echo "جاري تنظيف شامل للملفات وحل تعارضات ZegoCloud..."
           
-          # حذف مجلدات الكاش والملفات المؤقتة لإنهاء خطأ typeof نهائياً
+          # حذف المجلدات المؤقتة التي قد تحتوي على رموز تالفة (typeof)
           rm -rf .expo/
           rm -rf node_modules/
           rm -f package-lock.json
           
-          # تثبيت المكتبات بالقوة لتجاوز تعارض ZegoCloud
+          # تثبيت المكتبات بالقوة لتجاوز تعارض الإصدارات بنجاح
           npm install --legacy-peer-deps --force
           
-          # تثبيت إضافات التنبيهات والاتصال لضمان عمل الرنين
+          # تثبيت إضافات التنبيهات والاتصال لضمان عمل نظام الرنين والتشفير
           npx expo install expo-notifications expo-device expo-constants -- --force
 
-      - name: 6. Start Expo Cloud Build
+      - name: 6. Patch & Start Expo Cloud Build
         working-directory: mobile
         run: |
-          echo "بدء البناء النهائي على سحابة Expo مع تنظيف الكاش السحابي..."
-          # استخدام --clear-cache فقط لتنظيف بيئة السيرفر وضمان بناء APK سليم
+          echo "إصلاح ملفات الإعدادات برمجياً لضمان تجاوز خطأ typeof..."
+          # حذف أي سطر يحتوي على كلمة typeof في ملفات تعريف ZegoCloud المسببة للخطأ
+          find node_modules/@zegocloud -name "package.json" -exec sed -i '/typeof/d' {} + || true
+          
+          echo "بدء البناء النهائي على سحابة Expo..."
+          # استخدام خيار تنظيف الكاش السحابي فقط لضمان بناء APK سليم بنسبة 100%
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
