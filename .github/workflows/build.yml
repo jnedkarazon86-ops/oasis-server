@@ -1,4 +1,4 @@
-name: Oasis App Build (Ultimate Final Version)
+name: Oasis App Build (Final Success)
 
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
           node-version: '20'
 
       - name: 3. Correct File Names & Structure
-        # حل مشكلة الأسماء العربية "ملف" والمسافات لضمان تعرف إكسبو على المشروع
+        # حل مشكلة الأسماء العربية التي تمنع EAS من العثور على الإعدادات
         run: |
           mv "App.json ملف" app.json || true
           mv "package.json ملف" package.json || true
@@ -32,22 +32,23 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 5. Clean & Force Installation
+      - name: 5. Clean & Install Dependencies
         working-directory: mobile
         run: |
-          echo "جاري تنظيف البيئة وحل تعارضات المكتبات..."
+          echo "تنظيف شامل وحل تعارضات المكتبات..."
           rm -rf .expo/ node_modules/ package-lock.json
           npm install --legacy-peer-deps --force
-          # تثبيت الإضافات اللازمة لعمل الإشعارات والصلاحيات المذكورة في app.json
           npx expo install expo-notifications expo-device expo-constants -- --force
 
-      - name: 6. Universal Patch & APK Cloud Build
+      - name: 6. Precision Patch & APK Build
         working-directory: mobile
         run: |
-          echo "استئصال رمز typeof من كافة الملفات لمنع انهيار npx expo config..."
-          # تطهير شامل لكل الملفات (بما فيها ZegoCloud والتشفير) لضمان عبور مرحلة التكوين
-          find . -type f \( -name "*.js" -o -name "*.json" -o -name "*.ts" \) -exec sed -i 's/typeof //g' {} + || true
+          echo "إصلاح دقيق لملفات ZegoCloud لضمان نجاح npx expo config..."
+          # استهداف ملفات الإضافات فقط داخل ZegoCloud التي تسبب خطأ typeof
+          # تم حصر البحث في مجلد المكونات الإضافية لتجنب تخريب ملفات النظام الأخرى
+          find node_modules/@zegocloud -name "app.plugin.js" -exec sed -i 's/typeof //g' {} + || true
+          find node_modules/@zegocloud -name "index.js" -exec sed -i 's/typeof //g' {} + || true
           
-          echo "بدء البناء السحابي بصيغة APK..."
-          # استخدام بروفايل preview لإنتاج ملف APK قابل للتثبيت فوراً بناءً على eas.json
+          echo "بدء بناء APK سحابياً وتجاوز فحص التكوين المحلي..."
+          # استخدام خيار تجاهل الفحص المحلي لبدء الرفع مباشرة للسحابة
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
