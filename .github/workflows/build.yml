@@ -20,7 +20,7 @@ jobs:
           node-version: '20'
 
       - name: 3. Prepare Assets
-        # يضمن وجود الصور داخل مجلد التطبيق قبل البناء لضمان ظهور الأيقونات
+        # يضمن نقل الصور لمجلد التطبيق لتظهر أيقونات التنبيهات والاتصال
         run: cp -r assets mobile/assets
 
       - name: 4. Setup EAS CLI
@@ -32,14 +32,17 @@ jobs:
       - name: 5. Install Dependencies & Build
         working-directory: mobile
         run: |
-          echo "جاري حل تعارض المكتبات بالقوة وتثبيت نظام الاتصال..."
+          echo "جاري تنظيف الملفات القديمة وحل تعارض المكتبات..."
           
-          # الحل الجذري لتجاوز أخطاء ERESOLVE التي ظهرت في الصور
+          # حذف أي ملفات إعدادات قديمة قد تسبب خطأ 'typeof'
+          rm -rf .expo/
+          
+          # تثبيت المكتبات بالقوة لتجاوز تعارض ZegoCloud مع التنبيهات
           npm install --legacy-peer-deps --force
           
-          # تثبيت إضافات التنبيهات والاتصال والتأكد من توافقها
+          # تثبيت الإضافات المطلوبة يدوياً لضمان توافقها
           npx expo install expo-notifications expo-device expo-constants -- --force
           
-          echo "Starting final build on Expo Cloud with clear cache..."
-          # بناء التطبيق مع مسح الكاش لضمان عدم تكرار الأخطاء السابقة
+          echo "بِدء البناء النهائي على سحابة Expo..."
+          # استخدام --clear-cache لضمان بناء نظيف تماماً
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
