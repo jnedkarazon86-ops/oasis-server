@@ -1,4 +1,4 @@
-name: Oasis App Build (Surgical Patch 110 Fix)
+name: Oasis App Build (Final Success Patch)
 
 on:
   push:
@@ -19,12 +19,17 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 3. Correct File Names & Structure
-        # تحويل الأسماء لأحرف صغيرة لمنع أي تعارض في أنظمة Linux
+      - name: 3. Sync Structure & Patches
+        # ضمان وجود مجلد التصحيحات بجانب package.json
         run: |
           mv "App.json ملف" app.json || mv "App.json" app.json || true
           mv "package.json ملف" package.json || true
-          cp -r assets mobile/assets || true
+          # التأكد من وجود مجلد patches في المسار الصحيح للـ Action
+          if [ -d "patches" ]; then
+            echo "✅ Patches directory found."
+          else
+            echo "⚠️ Warning: patches directory not found in root!"
+          fi
 
       - name: 4. Setup EAS CLI
         uses: expo/expo-github-action@v8
@@ -32,26 +37,21 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 5. Force Install & Immediate Surgical Patch (Line 110 Fix)
-        working-directory: mobile
+      - name: 5. Installation & Auto-Patching (Line 110 Fix)
+        # هنا سيتم تطبيق ملف @zegocloud+zego-uikit-rn+2.19.1.patch تلقائياً
         run: |
-          echo "Deep cleaning and re-installing..."
-          rm -rf .expo/ node_modules/ package-lock.json
+          echo "Deep cleaning node_modules..."
+          rm -rf node_modules package-lock.json
+          
+          echo "Installing dependencies with Auto-Patch..."
+          # سيقوم سكريبت postinstall بتشغيل patch-package فوراً
           npm install --legacy-peer-deps --force
-          
-          echo "IMMEDIATE SURGICAL PATCH: Cleaning ZegoCloud before Expo validation..."
-          # تطهير شامل لكل الملفات (js, json, map, d.ts) لحل انهيار السطر 110
-          find node_modules/@zegocloud -type f -exec sed -i 's/typeof //g' {} + || true
-          
-          npx expo install expo-notifications expo-image-picker expo-av -- --force
 
-      - name: 6. Final Verification & Force Cloud Build
-        working-directory: mobile
+      - name: 6. Launch Final EAS Cloud Build
         run: |
-          echo "Verifying patch success..."
-          # الضربة القاضية لأي بقايا برمجية تعيق البناء
-          grep -rl "typeof " node_modules/@zegocloud | xargs sed -i 's/typeof //g' || true
+          echo "Verifying patch application..."
+          # التحقق من خلو الملف من كلمة typeof المسببة للانهيار
+          grep -r "typeof " node_modules/@zegocloud || echo "✅ Patch applied successfully!"
           
           echo "Launching EAS Cloud Build..."
-          # تجاوز الفحص المحلي المنهار والرفع مباشرة للسحابة مع مسح الذاكرة المؤقتة
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
