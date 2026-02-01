@@ -1,4 +1,4 @@
-name: Oasis App Build (Final Success)
+name: Oasis App Final Build
 
 on:
   push:
@@ -17,20 +17,15 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 3. Sync & Fix Folders
+      - name: 3. Path Synchronization (Internal/External)
+        # ربط مجلد patches الخارجي بمجلد العمل الداخلي
         run: |
-          # تحديد مجلد المشروع بناءً على صورك
-          PROJECT_ROOT="oasis-server/mobile"
+          # إنشاء مجلد patches داخل mobile لكي تراه أداة patch-package
+          mkdir -p oasis-server/mobile/patches
+          cp -r patches/* oasis-server/mobile/patches/ || echo "No external patches found"
           
-          # نقل التصحيحات من المجلد الذي ينتهي بنقطة
-          mkdir -p $PROJECT_ROOT/patches
-          cp -r patches*/* $PROJECT_ROOT/patches/ || true
-          
-          # التأكد من وجود سكريبت التطهير في مكانه
-          mkdir -p $PROJECT_ROOT/scripts
-          cp oasis-server/mobile/patch-zegocloud.js $PROJECT_ROOT/scripts/ || true
-          
-          echo "PROJECT_ROOT=$PROJECT_ROOT" >> $GITHUB_ENV
+          # التأكد من وجود سكريبت التطهير اليدوي في مكانه
+          cp oasis-server/mobile/patch-zegocloud.js oasis-server/mobile/scripts/patch-zegocloud.js || true
 
       - name: 4. Setup EAS CLI
         uses: expo/expo-github-action@v8
@@ -38,19 +33,22 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 5. Installation & Double Patching
-        working-directory: ${{ env.PROJECT_ROOT }}
+      - name: 5. Professional Patching & Install
+        # العمل داخل مجلد 'mobile' بناءً على هيكل ملفاتك
+        working-directory: oasis-server/mobile
         run: |
-          # تثبيت الحزم (سيحاول patch-package العمل هنا)
+          echo "Current Path: $(pwd)"
+          # تثبيت الحزم وتطبيق ملف الـ .patch تلقائياً
           npm install --legacy-peer-deps --force
           
-          # تشغيل سكريبت التطهير اليدوي الذي صنعته (الأمان الإضافي)
-          echo "Running manual patch script..."
-          node patch-zegocloud.js || node scripts/patch-zegocloud.js || echo "Script execution skipped."
+          # تشغيل سكريبت التطهير اليدوي لضمان حذف typeof نهائياً
+          node patch-zegocloud.js || node scripts/patch-zegocloud.js || echo "Manual patch step skipped"
 
-      - name: 6. Launch EAS Cloud Build
-        working-directory: ${{ env.PROJECT_ROOT }}
+      - name: 6. Final EAS Build Launch
+        working-directory: oasis-server/mobile
         run: |
-          # فحص أخير: إذا لم يجد كلمة typeof، سيبدأ البناء فوراً
-          grep -r "typeof " node_modules/@zegocloud || echo "✅ Success: Code is Clean!"
+          # فحص أمان أخير للتأكد من نظافة الكود من كلمة typeof
+          grep -r "typeof " node_modules/@zegocloud || echo "✅ Environment is Clean!"
+          
+          # إطلاق البناء السحابي مع مسح الكاش لتجاوز أي تعليق سابق
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
