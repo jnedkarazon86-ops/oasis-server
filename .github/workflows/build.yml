@@ -34,15 +34,16 @@ jobs:
         run: |
           echo "جاري تنظيف الملفات القديمة وحل تعارض المكتبات..."
           
-          # حذف أي ملفات إعدادات قديمة قد تسبب خطأ 'typeof'
+          # حذف مجلدات الكاش فقط (لا يحذف برمجتك الأصيلة) لإنهاء خطأ typeof
           rm -rf .expo/
+          rm -rf node_modules/
           
-          # تثبيت المكتبات بالقوة لتجاوز تعارض ZegoCloud مع التنبيهات
+          # تثبيت المكتبات بالقوة لتجاوز تعارض ZegoCloud الذي ظهر في الصور
           npm install --legacy-peer-deps --force
           
-          # تثبيت الإضافات المطلوبة يدوياً لضمان توافقها
+          # تثبيت إضافات التنبيهات والاتصال لضمان عمل الرنين
           npx expo install expo-notifications expo-device expo-constants -- --force
           
-          echo "بِدء البناء النهائي على سحابة Expo..."
-          # استخدام --clear-cache لضمان بناء نظيف تماماً
+          echo "بدء البناء النهائي على سحابة Expo..."
+          # استخدام --clear-cache لضمان بناء نظيف تماماً من جهة السيرفر
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
