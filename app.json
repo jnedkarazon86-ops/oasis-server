@@ -14,26 +14,9 @@
     },
     "assetBundlePatterns": ["**/*"],
     "plugins": [
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/icon.png",
-          "color": "#ffffff",
-          "sounds": ["./assets/ringtone.wav"]
-        }
-      ],
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "اسمح لواحة Oasis بالوصول إلى صورك."
-        }
-      ],
-      [
-        "expo-av",
-        {
-          "microphonePermission": "نحتاج للوصول للميكروفون."
-        }
-      ],
+      "expo-notifications",
+      "expo-image-picker",
+      "expo-av",
       "@zegocloud/zego-uikit-prebuilt-call-rn",
       "@zegocloud/zego-uikit-signaling-plugin-rn"
     ],
@@ -48,21 +31,8 @@
         "ACCESS_NETWORK_STATE",
         "INTERNET",
         "POST_NOTIFICATIONS",
-        "WAKE_LOCK",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
-      ],
-      "blockControlPanel": true
-    },
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.oasis.app2026",
-      "infoPlist": {
-        "NSCameraUsageDescription": "نحتاج للكاميرا للمكالمات.",
-        "NSMicrophoneUsageDescription": "نحتاج للميكروفون للمكالمات.",
-        "NSPhotoLibraryUsageDescription": "نحتاج للوصول للصور.",
-        "UIBackgroundModes": ["voip", "audio", "fetch"]
-      }
+        "WAKE_LOCK"
+      ]
     },
     "extra": {
       "eas": {
