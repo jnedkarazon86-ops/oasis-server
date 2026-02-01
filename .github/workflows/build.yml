@@ -1,4 +1,4 @@
-name: Oasis App Build
+name: Oasis App Build (Fresh Start)
 
 on:
   push:
@@ -19,13 +19,14 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 3. Clean and Install Dependencies
+      - name: 3. Force Clean Slate (الأمر الذي يركز على الجديد)
         run: |
-          echo "Cleaning environment to prevent 'typeof' errors..."
-          # حذف أي مخلفات قديمة تسبب تعارضات برمجية
-          rm -rf node_modules package-lock.json
-          # تثبيت المكتبات بقوة لتجاوز تعارض ZegoCloud
-          npm install --legacy-peer-deps --force
+          echo "جاري حذف أي مخلفات قديمة من المحاولات السابقة..."
+          # حذف المجلدات التي قد تسبب خطأ typeof أو تعارض ZegoCloud
+          rm -rf node_modules
+          rm -f package-lock.json
+          # تنظيف كاش الـ npm لضمان تحميل أحدث إصدارات الملحقات
+          npm cache clean --force
 
       - name: 4. Setup EAS CLI
         uses: expo/expo-github-action@v8
@@ -33,7 +34,7 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 5. Build on Expo Cloud
+      - name: 5. Build on Expo Cloud (Direct Fresh Upload)
         run: |
-          # الرفع للبناء السحابي مع تجاهل التحقق المحلي من الملحقات
+          # نرفع الكود الصافي فقط (App.js, app.json) ليقوم EAS ببناء بيئة جديدة تماماً
           eas build --platform android --profile preview --non-interactive --no-wait
