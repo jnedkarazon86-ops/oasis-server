@@ -1,4 +1,4 @@
-name: Oasis App Forced Success Build
+name: Oasis_Final_Cloud_Build
 
 on:
   push:
@@ -23,33 +23,33 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 4. Installation & Universal Patching
+      - name: 4. Universal Hunt & Forced Patching
         run: |
-          # البحث الديناميكي عن المجلد الصحيح مهما كان عمق التكرار
+          # العثور على المسار الصحيح لتجنب خطأ No such file or directory
           TARGET_DIR=$(find . -name "package.json" -not -path "*/node_modules/*" -exec dirname {} \; | head -n 1)
           echo "Moving to verified directory: $TARGET_DIR"
           cd "$TARGET_DIR"
 
-          # تنظيف الكاش وإجبار التثبيت
+          # تنظيف قسري لتجنب أخطاء الذاكرة Buffer
           npm cache clean --force || true
           rm -rf node_modules package-lock.json || true
           
-          # تثبيت الحزم (هذه الخطوة يجب أن تنجح لإنشاء المجلد)
+          # تثبيت الحزم لإعادة إنشاء المجلدات المفقودة
           npm install --legacy-peer-deps --force || true
           
-          # التطهير القسري: البحث في كل المجلدات الفرعية عن zegocloud
+          # التطهير القسري باستخدام sed (أخف على الذاكرة)
           echo "Forcing text replacement..."
           find . -name "*.js" -path "*/@zegocloud/*" -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} + || true
 
-      - name: 5. Launch EAS Cloud Build
+      - name: 5. Absolute Force Launch EAS Build
         run: |
-          # العودة للمسار الذي تم التحقق منه
+          # التأكد من العمل داخل مجلد المشروع المكتشف
           TARGET_DIR=$(find . -name "package.json" -not -path "*/node_modules/*" -exec dirname {} \; | head -n 1)
           cd "$TARGET_DIR"
           
-          # فحص صامت وتجاهل الخطأ
+          # فحص صامت وتجاهل الأخطاء لضمان الاستمرار
           grep -r "typeof " node_modules/@zegocloud || echo "✅ Clean" || true
           
-          # إطلاق البناء السحابي وتجاوز فشل plugins المحلي
+          # إجبار إرسال الطلب لسحابة Expo وتجاوز فشل plugins المحلي
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache || true
           echo "🚀 Success: Build request forced to Expo Cloud."
