@@ -1,4 +1,4 @@
-name: Oasis App Build (Fresh Start)
+Name: Oasis App Build (Fresh Start)
 
 on:
   push:
@@ -19,13 +19,11 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 3. Force Clean Slate (الأمر الذي يركز على الجديد)
+      - name: 3. Force Clean Slate
         run: |
           echo "جاري حذف أي مخلفات قديمة من المحاولات السابقة..."
-          # حذف المجلدات التي قد تسبب خطأ typeof أو تعارض ZegoCloud
           rm -rf node_modules
           rm -f package-lock.json
-          # تنظيف كاش الـ npm لضمان تحميل أحدث إصدارات الملحقات
           npm cache clean --force
 
       - name: 4. Setup EAS CLI
@@ -36,5 +34,5 @@ jobs:
 
       - name: 5. Build on Expo Cloud (Direct Fresh Upload)
         run: |
-          # نرفع الكود الصافي فقط (App.js, app.json) ليقوم EAS ببناء بيئة جديدة تماماً
-          eas build --platform android --profile preview --non-interactive --no-wait
+          # الإضافة هنا: أضفنا --clear-cache لضمان تجاهل أي ملفات قديمة فاشلة
+          eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
