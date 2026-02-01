@@ -23,26 +23,26 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 4. Installation & Patching
-        # التوجه مباشرة لمجلد mobile بناءً على الصورة
-        working-directory: oasis-server/mobile
+      - name: 4. Installation & Deep Patching
+        # تصحيح المسار للعمل داخل مجلد mobile مباشرة
+        working-directory: mobile
         run: |
-          # تنظيف الكاش لمنع أخطاء الذاكرة (Buffer) الظاهرة في السجلات
+          # تنظيف الكاش لمنع أخطاء Buffer السابقة
           npm cache clean --force
           rm -rf node_modules package-lock.json
           
-          # تثبيت الحزم (سيقوم patch-package بتطبيق ملف التصحيح آلياً)
+          # تثبيت الحزم (تفعيل ملف الـ .patch تلقائياً)
           npm install --legacy-peer-deps --force
           
-          # مشرط الطوارئ (sed): حذف typeof يدوياً وبسرعة البرق لضمان نظافة الكود تماماً
+          # مشرط الطوارئ (sed): حذف typeof يدوياً وبسرعة فائقة لتجنب أخطاء الذاكرة
           echo "Applying emergency cleaning for @zegocloud..."
           find node_modules/@zegocloud -name "*.js" -type f -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} +
 
       - name: 5. Launch EAS Cloud Build
-        working-directory: oasis-server/mobile
+        working-directory: mobile
         run: |
-          # فحص أمان أخير للتأكد من اختفاء كلمة typeof المسببة للخطأ
+          # فحص أمان أخير للتأكد من نظافة الكود من كلمة typeof
           grep -r "typeof " node_modules/@zegocloud || echo "✅ Success: Code is Clean!"
           
-          # إطلاق البناء السحابي النهائي
+          # إطلاق البناء السحابي
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
