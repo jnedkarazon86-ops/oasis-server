@@ -45,9 +45,13 @@ jobs:
           # تثبيت إضافات التنبيهات والاتصال لضمان عمل الرنين وتجاوز تنبيهات Config Plugin
           npx expo install expo-notifications expo-device expo-constants -- --force
 
-      - name: 6. Start Expo Cloud Build
+      - name: 6. Fix Config & Start Expo Cloud Build
         working-directory: mobile
         run: |
-          echo "بدء البناء النهائي على سحابة Expo مع تجاهل التنبيهات غير المؤثرة..."
-          # مسح الكاش من جهة السيرفر لضمان بناء APK سليم وتجاوز رسائل الرجوع للإصدارات القديمة
+          echo "إصلاح ملفات الإعدادات برمجياً لضمان تجاوز خطأ typeof..."
+          # مسح أي إعدادات محلية تالفة قبل بدء البناء السحابي
+          npx expo config --clear
+          
+          echo "بدء البناء النهائي على سحابة Expo مع تجاهل التنبيهات..."
+          # مسح الكاش من جهة السيرفر لضمان بناء APK سليم تماماً
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
