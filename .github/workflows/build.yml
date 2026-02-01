@@ -18,18 +18,18 @@ jobs:
           node-version: '20'
 
       - name: 3. Clean Path Discovery
-        # هذا السكريبت سيعثر على المجلد الصحيح مهما كان تكرار الأسماء
+        # البحث عن المسار الحقيقي لتجنب خطأ المسارات المكررة
         run: |
-          # البحث عن مكان package.json وتجاهل node_modules
           PKG_PATH=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1)
           PROJECT_ROOT=$(dirname "$PKG_PATH")
           echo "PROJECT_ROOT=$PROJECT_ROOT" >> $GITHUB_ENV
           echo "✅ Detected Project Root at: $PROJECT_ROOT"
           
-          # مزامنة التصحيحات: نقل مجلد patches من الجذر إلى جانب package.json
+          # مزامنة التصحيحات من المجلد الخارجي إلى المجلد الداخلي
           mkdir -p "$PROJECT_ROOT/patches"
           if [ -d "patches" ]; then
             cp -r patches/* "$PROJECT_ROOT/patches/"
+            echo "✅ Patches synced to $PROJECT_ROOT/patches"
           fi
 
       - name: 4. Setup EAS CLI
@@ -38,29 +38,27 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 5. Professional Installation & Patching
+      - name: 5. Professional Installation & Deep Cleaning
         # التنفيذ داخل المجلد المكتشف آلياً لكسر حاجز ENOENT
         working-directory: ${{ env.PROJECT_ROOT }}
         run: |
-          echo "Working directory is: $(pwd)"
-          # تنظيف شامل لضمان عدم وجود مخلفات بناء قديمة
+          echo "Current Path: $(pwd)"
+          # تنظيف شامل لمنع أخطاء Buffer السابقة
+          npm cache clean --force
           rm -rf node_modules package-lock.json
           
-          # تثبيت الحزم (سيقوم patch-package بالعمل آلياً هنا)
+          # تثبيت الحزم (سيحاول patch-package العمل آلياً هنا)
           npm install --legacy-peer-deps --force
           
-          # تشغيل سكريبت التطهير اليدوي كضمانة إضافية لحذف typeof
-          if [ -f "patch-zegocloud.js" ]; then
-            node patch-zegocloud.js
-          elif [ -f "scripts/patch-zegocloud.js" ]; then
-            node scripts/patch-zegocloud.js
-          fi
+          # المشرط الجراحي النهائي: حذف typeof يدوياً عبر أمر النظام sed لتجنب أخطاء Node
+          echo "Applying emergency text replacement for ZegoCloud..."
+          find node_modules/@zegocloud -name "*.js" -type f -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} +
 
       - name: 6. Launch EAS Cloud Build
         working-directory: ${{ env.PROJECT_ROOT }}
         run: |
-          # فحص أخير: إذا نجح التطهير، لن يظهر أي خطأ token 'typeof'
+          # فحص أخير: إذا لم يجد "typeof " فهذا يعني نجاح العملية
           grep -r "typeof " node_modules/@zegocloud || echo "✅ Success: Code is clean of typeof errors!"
           
-          # إطلاق البناء السحابي النهائي
+          # إطلاق البناء السحابي مع مسح الكاش تماماً
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
