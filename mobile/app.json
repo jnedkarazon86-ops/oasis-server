@@ -3,7 +3,6 @@
     "name": "Oasis App",
     "slug": "oasis-app",
     "version": "1.0.0",
-    "owner": "aboahj",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -14,7 +13,7 @@
     },
     "assetBundlePatterns": ["**/*"],
     "plugins": [
-      "expo-notifications",
+      ["expo-notifications", { "icon": "./assets/icon.png", "color": "#ffffff" }],
       "expo-image-picker",
       "expo-av",
       "@zegocloud/zego-uikit-prebuilt-call-rn",
@@ -38,6 +37,12 @@
       "eas": {
         "projectId": "742d678c-90bd-4cf1-b261-604691b3cf53"
       }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/742d678c-90bd-4cf1-b261-604691b3cf53"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     }
   }
 }
