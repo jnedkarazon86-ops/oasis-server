@@ -1,4 +1,4 @@
-name: Oasis App Build (Smart Path Fix)
+name: Oasis App Build (Final Path Fix)
 
 on:
   push:
@@ -17,18 +17,21 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 3. Dynamic Structure Discovery
-        # هذا الأمر سيبحث عن مكان package.json الحقيقي وينقل العمل إليه
+      - name: 3. Fix Structure & Sync Patches
+        # تحديد المسار الذي رأيناه في الصور: oasis-server/mobile
         run: |
+          # العثور على المسار تلقائياً للتأكد
           PACKAGE_PATH=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1)
           PROJECT_ROOT=$(dirname "$PACKAGE_PATH")
           echo "PROJECT_ROOT=$PROJECT_ROOT" >> $GITHUB_ENV
           
-          # تأكيد وجود المجلدات الضرورية للـ Patch
+          # نقل مجلد patches من الجذر إلى داخل مجلد mobile لضمان عمل patch-package
           mkdir -p "$PROJECT_ROOT/patches"
-          cp -r patches/* "$PROJECT_ROOT/patches/" || true
+          if [ -d "patches" ]; then
+            cp -r patches/* "$PROJECT_ROOT/patches/"
+          fi
           
-          # توحيد أسماء الملفات في مكانها الصحيح
+          # إصلاح اسم ملف app.json إذا لزم الأمر
           mv "$PROJECT_ROOT/App.json ملف" "$PROJECT_ROOT/app.json" || true
 
       - name: 4. Setup EAS CLI
@@ -37,16 +40,20 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 5. Installation & Automatic Patching
+      - name: 5. Installation & Auto-Patch (The Magic Step)
+        # التنفيذ داخل مجلد المحرك (mobile) لكسر خطأ سطر 110
         working-directory: ${{ env.PROJECT_ROOT }}
         run: |
-          echo "Current Path: $(pwd)"
+          echo "Working in: $(pwd)"
           rm -rf node_modules
+          # التثبيت سيقوم بحذف كلمة typeof المعطلة تلقائياً بفضل الـ Patch
           npm install --legacy-peer-deps --force
 
       - name: 6. Launch EAS Cloud Build
         working-directory: ${{ env.PROJECT_ROOT }}
         run: |
-          # التحقق النهائي من نجاح الـ Patch الذي رفعته
-          grep -r "typeof " node_modules/@zegocloud || echo "✅ Patch is Active!"
+          # التحقق: إذا لم تظهر نتيجة لـ grep فهذا يعني أن الكود أصبح نظيفاً ✅
+          grep -r "typeof " node_modules/@zegocloud || echo "✅ Patch Success: No typeof errors found!"
+          
+          # بدء البناء السحابي وتجاوز أخطاء التكوين المحلي
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
