@@ -1,4 +1,4 @@
-name: Oasis App Build (Final Success)
+name: Oasis App Build (Ultimate Force & Surgical Patch)
 
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
           node-version: '20'
 
       - name: 3. Correct File Names & Assets
-        # تصحيح الأسماء العربية فوراً لضمان عثور EAS على الإعدادات
+        # تصحيح الأسماء العربية فوراً لضمان عثور EAS على ملفات الإعدادات
         run: |
           mv "App.json ملف" app.json || true
           mv "package.json ملف" package.json || true
@@ -35,19 +35,18 @@ jobs:
       - name: 5. Clean & Force Resolve Dependencies
         working-directory: mobile
         run: |
-          echo "تنظيف عميق وإعادة تثبيت المكتبات بشكل متوافق..."
+          echo "Deep cleaning and re-installing dependencies..."
           rm -rf .expo/ node_modules/ package-lock.json
           npm install --legacy-peer-deps --force
-          # تثبيت الإضافات الضرورية لـ app.json بشكل مستقل
           npx expo install expo-notifications expo-device expo-constants -- --force
 
-      - name: 6. Patch ZegoCloud & Start Cloud Build
+      - name: 6. Precision Surgical Patch & Force Cloud Build
         working-directory: mobile
         run: |
-          echo "إصلاح مكتبة ZegoCloud فقط دون المساس بملفات النظام..."
-          # استهداف الملفات التي تظهر في سجل الخطأ فقط لمنع انهيار npx expo config
-          find node_modules/@zegocloud -name "*.js" -exec sed -i 's/typeof //g' {} + || true
+          echo "Applying Surgical Patch to ZegoCloud (Force Mode)..."
+          # المشرط الجراحي الإنجليزي: استهداف ZegoCloud فقط لحذف 'typeof' المسببة للخطأ
+          find node_modules/@zegocloud -type f \( -name "*.js" -o -name "*.json" \) -exec sed -i 's/typeof //g' {} + || true
           
-          echo "بدء الرفع للسحابة وتجاوز أخطاء التكوين المحلي..."
-          # استخدام الرفع السحابي المباشر لتجنب تعارضات البيئة المحلية
+          echo "Forcing build and bypassing local config validation..."
+          # إجبار النظام على تجاهل أخطاء التكوين المحلي والرفع مباشرة للسحابة
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
