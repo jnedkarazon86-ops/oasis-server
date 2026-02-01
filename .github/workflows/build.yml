@@ -1,4 +1,4 @@
-name: Oasis App Build (Final Success - Lowcase Fix)
+name: Oasis App Build (Ultimate Surgical Fix)
 
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
           node-version: '20'
 
       - name: 3. Correct File Names & Structure
-        # ضمان تحويل الأسماء لأحرف صغيرة وتصحيح المسار ليتوافق مع app.json الجديد
+        # تحويل الأسماء لأحرف صغيرة فوراً لضمان قراءة ملفات الإعدادات
         run: |
           mv "App.json ملف" app.json || mv "App.json" app.json || true
           mv "package.json ملف" package.json || true
@@ -32,22 +32,28 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 5. Clean & Fresh Installation
+      - name: 5. Clean & Force Installation
         working-directory: mobile
         run: |
-          echo "Cleaning and installing dependencies for Oasis App..."
+          echo "Cleaning environment and installing dependencies..."
           rm -rf .expo/ node_modules/ package-lock.json
           npm install --legacy-peer-deps --force
-          # تثبيت المكتبات المذكورة في plugins لضمان وجودها
           npx expo install expo-notifications expo-image-picker expo-av -- --force
 
-      - name: 6. Surgical Patch & Force Cloud Build
+      - name: 6. Precision Surgical Patch & Force Cloud Build
         working-directory: mobile
         run: |
-          echo "Applying English Surgical Patch to ZegoCloud Plugins..."
-          # المشرط الجراحي: إصلاح ملفات المكونات الإضافية التي عرفتها في app.json
-          find node_modules/@zegocloud -type f \( -name "*.js" -o -name "*.json" \) -exec sed -i 's/typeof //g' {} + || true
+          echo "Applying Deep Surgical Patch to ZegoCloud..."
+          # استخدام xargs لضمان حذف 'typeof' من كافة الملفات بعمق واختراق أي حماية
+          find node_modules/@zegocloud -type f \( -name "*.js" -o -name "*.json" \) -print0 | xargs -0 sed -i 's/typeof //g' || true
           
-          echo "Launching Cloud Build for Project: oasis-app..."
-          # إجبار النظام على الرفع للسحابة باستخدام projectId: 742d678c...
+          echo "Verifying patch success..."
+          # التحقق من خلو المجلد من كلمة 'typeof' المسببة للخطأ
+          if grep -r "typeof " node_modules/@zegocloud; then
+            echo "Warning: typeof still exists, forcing secondary cleaning..."
+            find node_modules/@zegocloud -type f -exec sed -i 's/typeof //g' {} + || true
+          fi
+
+          echo "Launching Cloud Build with Clear Cache..."
+          # تجاوز الفحص المحلي والرفع مباشرة للسحابة مع مسح الذاكرة المؤقتة
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
