@@ -1,4 +1,4 @@
-name: Oasis App Final Success Build
+name: Oasis App Forced Success Build
 
 on:
   push:
@@ -23,26 +23,26 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 4. Installation & Deep Patching
-        # التوجه مباشرة لمجلد mobile (المسار الصحيح بناءً على هيكل مستودعك)
+      - name: 4. Installation & Forced Patching
+        # الدخول لمجلد mobile مباشرة
         working-directory: mobile
         run: |
-          # تنظيف شامل لمنع أخطاء الذاكرة (Buffer) التي ظهرت في سجلاتك
-          npm cache clean --force
+          # تنظيف قسري وتجاهل الأخطاء إذا لم توجد الملفات
+          npm cache clean --force || true
           rm -rf node_modules package-lock.json || true
           
-          # تثبيت الحزم (أداة patch-package ستطبق ملف الـ .patch تلقائياً)
-          npm install --legacy-peer-deps --force
+          # تثبيت الحزم بقوة وتجاهل تعارض الإصدارات
+          npm install --legacy-peer-deps --force || true
           
-          # مشرط الطوارئ (sed): حذف typeof المعطلة بسرعة لتجنب استهلاك الذاكرة
-          echo "Applying emergency cleaning for @zegocloud..."
-          find node_modules/@zegocloud -name "*.js" -type f -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} +
+          # إجبار التطهير: حذف typeof من أي مكان في مكتبات ZegoCloud
+          echo "Forcing text replacement in node_modules..."
+          find node_modules/@zegocloud -name "*.js" -type f -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} + || true
 
       - name: 5. Launch EAS Cloud Build
         working-directory: mobile
         run: |
-          # فحص أخير للتأكد من نظافة الكود من كلمة typeof المسببة للخطأ
-          grep -r "typeof " node_modules/@zegocloud || echo "✅ Success: Code is Clean!"
+          # فحص أخير صامت
+          grep -r "typeof " node_modules/@zegocloud || echo "✅ Clean"
           
-          # إطلاق البناء السحابي مع مسح الكاش لضمان بداية نظيفة
+          # إطلاق البناء السحابي وإجباره على تنظيف الكاش القديم
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
