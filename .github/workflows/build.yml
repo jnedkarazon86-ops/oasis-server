@@ -1,4 +1,4 @@
-name: Oasis App Final Success Build
+name: Oasis App Build (Engines Folder Solution)
 
 on:
   push:
@@ -17,19 +17,18 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 3. Clean Path Discovery
-        # البحث عن المسار الحقيقي لتجنب خطأ المسارات المكررة
+      - name: 3. Locate Engine & Sync Patches
+        # البحث الديناميكي عن المجلد الذي يحتوي على package.json
         run: |
           PKG_PATH=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1)
           PROJECT_ROOT=$(dirname "$PKG_PATH")
           echo "PROJECT_ROOT=$PROJECT_ROOT" >> $GITHUB_ENV
-          echo "✅ Detected Project Root at: $PROJECT_ROOT"
           
-          # مزامنة التصحيحات من المجلد الخارجي إلى المجلد الداخلي
-          mkdir -p "$PROJECT_ROOT/patches"
+          # نقل مجلد patches ليكون بجانب package.json داخل مجلد المحركات
           if [ -d "patches" ]; then
+            mkdir -p "$PROJECT_ROOT/patches"
             cp -r patches/* "$PROJECT_ROOT/patches/"
-            echo "✅ Patches synced to $PROJECT_ROOT/patches"
+            echo "✅ Patches synced to $PROJECT_ROOT"
           fi
 
       - name: 4. Setup EAS CLI
@@ -38,27 +37,18 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 5. Professional Installation & Deep Cleaning
-        # التنفيذ داخل المجلد المكتشف آلياً لكسر حاجز ENOENT
+      - name: 5. Installation & Auto-Patch (Line 110 Fix)
+        # التنفيذ داخل مجلد المحركات لضمان العثور على الملفات
         working-directory: ${{ env.PROJECT_ROOT }}
         run: |
           echo "Current Path: $(pwd)"
-          # تنظيف شامل لمنع أخطاء Buffer السابقة
-          npm cache clean --force
-          rm -rf node_modules package-lock.json
-          
-          # تثبيت الحزم (سيحاول patch-package العمل آلياً هنا)
+          rm -rf node_modules
+          # التثبيت سيقوم بتفعيل patch-package وتطهير typeof
           npm install --legacy-peer-deps --force
-          
-          # المشرط الجراحي النهائي: حذف typeof يدوياً عبر أمر النظام sed لتجنب أخطاء Node
-          echo "Applying emergency text replacement for ZegoCloud..."
-          find node_modules/@zegocloud -name "*.js" -type f -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} +
 
       - name: 6. Launch EAS Cloud Build
         working-directory: ${{ env.PROJECT_ROOT }}
         run: |
-          # فحص أخير: إذا لم يجد "typeof " فهذا يعني نجاح العملية
-          grep -r "typeof " node_modules/@zegocloud || echo "✅ Success: Code is clean of typeof errors!"
-          
-          # إطلاق البناء السحابي مع مسح الكاش تماماً
+          # التحقق من نجاح المشرط الجراحي
+          grep -r "typeof " node_modules/@zegocloud || echo "✅ Clean Code!"
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
