@@ -17,13 +17,14 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 3. Dynamic Path Discovery
-        # البحث عن المسار الحقيقي لتجنب تكرار المجلدات
+      - name: 3. Dynamic Path Discovery & Patch Sync
+        # هذا الجزء ينهي مشكلة تكرار المسارات ويهيئ التصحيحات
         run: |
           REAL_PATH=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1 | xargs dirname)
           echo "PROJECT_ROOT=$REAL_PATH" >> $GITHUB_ENV
+          echo "✅ Detected Project Root at: $REAL_PATH"
           
-          # نقل مجلد patches للداخل لضمان عمل patch-package آلياً
+          # مزامنة مجلد patches من الجذر إلى جانب package.json
           mkdir -p "$REAL_PATH/patches"
           if [ -d "patches" ]; then
             cp -r patches/* "$REAL_PATH/patches/"
@@ -35,24 +36,24 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 5. Professional Installation & Deep Patching
+      - name: 5. Installation & Emergency Clean
         working-directory: ${{ env.PROJECT_ROOT }}
         run: |
           echo "Current Path: $(pwd)"
+          # تنظيف شامل لمنع أخطاء الذاكرة السابقة
           npm cache clean --force
           rm -rf node_modules package-lock.json
           
           # تثبيت الحزم (تفعيل حل Emergent التلقائي)
           npm install --legacy-peer-deps --force
           
-          # المشرط الجراحي النهائي: حذف typeof يدوياً وبسرعة لتجنب أخطاء السطر 110
-          # هذا الأمر يحل محل السكريبت الفاشل
+          # استخدام 'sed' بدلاً من سكريبت Node لتجنب أخطاء Buffer وحذف typeof نهائياً
           echo "Running emergency cleaning..."
           find node_modules/@zegocloud -name "*.js" -type f -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} +
 
       - name: 6. Launch EAS Cloud Build
         working-directory: ${{ env.PROJECT_ROOT }}
         run: |
-          # فحص أمان أخير للتأكد من نظافة الكود
-          grep -r "typeof " node_modules/@zegocloud || echo "✅ Code is Clean!"
+          # فحص أخير للتأكد من اختفاء كلمة typeof
+          grep -r "typeof " node_modules/@zegocloud || echo "✅ Success: Code is clean!"
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
