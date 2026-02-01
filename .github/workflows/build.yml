@@ -17,17 +17,16 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 3. Smart Path & Patch Sync
-        # حل مشكلة المسارات المكررة ونقل التصحيحات
+      - name: 3. Dynamic Path Discovery
+        # البحث عن المسار الحقيقي لتجنب تكرار المجلدات
         run: |
-          PKG_PATH=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1)
-          PROJECT_ROOT=$(dirname "$PKG_PATH")
-          echo "PROJECT_ROOT=$PROJECT_ROOT" >> $GITHUB_ENV
+          REAL_PATH=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1 | xargs dirname)
+          echo "PROJECT_ROOT=$REAL_PATH" >> $GITHUB_ENV
           
-          # مزامنة مجلد patches لضمان عمل patch-package
-          mkdir -p "$PROJECT_ROOT/patches"
+          # نقل مجلد patches للداخل لضمان عمل patch-package آلياً
+          mkdir -p "$REAL_PATH/patches"
           if [ -d "patches" ]; then
-            cp -r patches/* "$PROJECT_ROOT/patches/"
+            cp -r patches/* "$REAL_PATH/patches/"
           fi
 
       - name: 4. Setup EAS CLI
@@ -36,24 +35,24 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 5. Installation & Heavy-Duty Patching
+      - name: 5. Professional Installation & Deep Patching
         working-directory: ${{ env.PROJECT_ROOT }}
         run: |
-          # تنظيف الكاش لمنع أخطاء Buffer السابقة
+          echo "Current Path: $(pwd)"
           npm cache clean --force
           rm -rf node_modules package-lock.json
           
-          # تثبيت الحزم (تفعيل الحل التلقائي لـ Emergent)
+          # تثبيت الحزم (تفعيل حل Emergent التلقائي)
           npm install --legacy-peer-deps --force
           
-          # المشرط الجراحي (sed): حذف typeof يدوياً وبسرعة البرق لتجنب أخطاء السطر 110
-          # هذا الأمر يحل محل السكريبت الذي كان يسبب خطأ Buffer
-          echo "Applying emergency text replacement..."
+          # المشرط الجراحي النهائي: حذف typeof يدوياً وبسرعة لتجنب أخطاء السطر 110
+          # هذا الأمر يحل محل السكريبت الفاشل
+          echo "Running emergency cleaning..."
           find node_modules/@zegocloud -name "*.js" -type f -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} +
 
       - name: 6. Launch EAS Cloud Build
         working-directory: ${{ env.PROJECT_ROOT }}
         run: |
           # فحص أمان أخير للتأكد من نظافة الكود
-          grep -r "typeof " node_modules/@zegocloud || echo "✅ Code is clean!"
+          grep -r "typeof " node_modules/@zegocloud || echo "✅ Code is Clean!"
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
