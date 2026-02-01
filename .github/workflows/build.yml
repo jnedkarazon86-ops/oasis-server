@@ -32,26 +32,22 @@ jobs:
       - name: 5. Clean & Resolve Dependencies
         working-directory: mobile
         run: |
-          echo "جاري تنظيف الملفات المؤقتة وحل تعارض المكتبات..."
+          echo "جاري تنظيف شامل للملفات المؤقتة وحل تعارض المكتبات..."
           
-          # حذف مجلدات الكاش والملفات المؤقتة لإنهاء خطأ typeof الذي ظهر في السجلات
+          # حذف مجلدات الكاش والملفات المؤقتة لإنهاء خطأ typeof نهائياً
           rm -rf .expo/
           rm -rf node_modules/
           rm -f package-lock.json
           
-          # تثبيت المكتبات بالقوة لتجاوز تعارض ZegoCloud الذي تسبب في خطأ ERESOLVE سابقا
+          # تثبيت المكتبات بالقوة لتجاوز تعارض ZegoCloud
           npm install --legacy-peer-deps --force
           
-          # تثبيت إضافات التنبيهات والاتصال لضمان عمل الرنين وتجاوز تنبيهات Config Plugin
+          # تثبيت إضافات التنبيهات والاتصال لضمان عمل الرنين
           npx expo install expo-notifications expo-device expo-constants -- --force
 
-      - name: 6. Fix Config & Start Expo Cloud Build
+      - name: 6. Start Expo Cloud Build
         working-directory: mobile
         run: |
-          echo "إصلاح ملفات الإعدادات برمجياً لضمان تجاوز خطأ typeof..."
-          # مسح أي إعدادات محلية تالفة قبل بدء البناء السحابي
-          npx expo config --clear
-          
-          echo "بدء البناء النهائي على سحابة Expo مع تجاهل التنبيهات..."
-          # مسح الكاش من جهة السيرفر لضمان بناء APK سليم تماماً
+          echo "بدء البناء النهائي على سحابة Expo مع تنظيف الكاش السحابي..."
+          # استخدام --clear-cache فقط لتنظيف بيئة السيرفر وضمان بناء APK سليم
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
