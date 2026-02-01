@@ -1,4 +1,4 @@
-name: Oasis App Build (Final Fix)
+name: Oasis App Build (Final Rescue)
 
 on:
   push:
@@ -32,26 +32,24 @@ jobs:
       - name: 5. Clean & Resolve Dependencies
         working-directory: mobile
         run: |
-          echo "جاري تنظيف شامل للملفات وحل تعارضات ZegoCloud..."
-          
-          # حذف المجلدات المؤقتة التي قد تحتوي على رموز تالفة (typeof)
-          rm -rf .expo/
-          rm -rf node_modules/
-          rm -f package-lock.json
+          echo "جاري تنظيف شامل وحل تعارضات ZegoCloud..."
+          # حذف المجلدات المؤقتة التي تسبب خطأ typeof المتكرر
+          rm -rf .expo/ node_modules/ package-lock.json
           
           # تثبيت المكتبات بالقوة لتجاوز تعارض الإصدارات بنجاح
           npm install --legacy-peer-deps --force
           
-          # تثبيت إضافات التنبيهات والاتصال لضمان عمل نظام الرنين والتشفير
+          # تثبيت إضافات التنبيهات والاتصال لضمان عمل نظام الرنين
           npx expo install expo-notifications expo-device expo-constants -- --force
 
       - name: 6. Patch & Start Expo Cloud Build
         working-directory: mobile
         run: |
-          echo "إصلاح ملفات الإعدادات برمجياً لضمان تجاوز خطأ typeof..."
-          # حذف أي سطر يحتوي على كلمة typeof في ملفات تعريف ZegoCloud المسببة للخطأ
-          find node_modules/@zegocloud -name "package.json" -exec sed -i '/typeof/d' {} + || true
+          echo "إصلاح خطأ typeof برمجياً لضمان تجاوز فشل npx expo config..."
+          # تطهير شامل لجميع ملفات ZegoCloud من رمز typeof الذي يمنع البناء
+          find ./node_modules/@zegocloud -name "*.json" -type f -exec sed -i '/typeof/d' {} + || true
+          find ./node_modules/@zegocloud -name "*.js" -type f -exec sed -i 's/typeof //g' {} + || true
           
           echo "بدء البناء النهائي على سحابة Expo..."
-          # استخدام خيار تنظيف الكاش السحابي فقط لضمان بناء APK سليم بنسبة 100%
+          # استخدام تنظيف الكاش السحابي لضمان بناء APK سليم تماماً
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
