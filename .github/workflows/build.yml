@@ -1,4 +1,4 @@
-name: Oasis App Final Build
+name: Oasis App Final Success Build
 
 on:
   push:
@@ -17,19 +17,20 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 3. Dynamic Path Discovery
-        # هذا الجزء ينهي مشكلة المسارات المكررة نهائياً
+      - name: 3. Clean Path Discovery
+        # هذا السكريبت سيعثر على المجلد الصحيح مهما كان تكرار الأسماء
         run: |
-          # البحث عن مكان package.json الحقيقي مهما كان عمق المجلدات
-          REAL_PKG_PATH=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1)
-          PROJECT_ROOT=$(dirname "$REAL_PKG_PATH")
+          # البحث عن مكان package.json وتجاهل node_modules
+          PKG_PATH=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1)
+          PROJECT_ROOT=$(dirname "$PKG_PATH")
           echo "PROJECT_ROOT=$PROJECT_ROOT" >> $GITHUB_ENV
-          echo "✅ Project found at: $PROJECT_ROOT"
+          echo "✅ Detected Project Root at: $PROJECT_ROOT"
           
-          # نقل التصحيحات والسكريبتات للمكان الصحيح
+          # مزامنة التصحيحات: نقل مجلد patches من الجذر إلى جانب package.json
           mkdir -p "$PROJECT_ROOT/patches"
-          cp -r patches/* "$PROJECT_ROOT/patches/" || true
-          cp "$PROJECT_ROOT/patch-zegocloud.js" "$PROJECT_ROOT/scripts/patch-zegocloud.js" || true
+          if [ -d "patches" ]; then
+            cp -r patches/* "$PROJECT_ROOT/patches/"
+          fi
 
       - name: 4. Setup EAS CLI
         uses: expo/expo-github-action@v8
@@ -38,20 +39,28 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: 5. Professional Installation & Patching
-        # التنفيذ داخل المسار المكتشف تلقائياً لتجنب خطأ ENOENT
+        # التنفيذ داخل المجلد المكتشف آلياً لكسر حاجز ENOENT
         working-directory: ${{ env.PROJECT_ROOT }}
         run: |
-          echo "Current Path: $(pwd)"
-          rm -rf node_modules
-          # التثبيت سيطبق الـ Patch آلياً
+          echo "Working directory is: $(pwd)"
+          # تنظيف شامل لضمان عدم وجود مخلفات بناء قديمة
+          rm -rf node_modules package-lock.json
+          
+          # تثبيت الحزم (سيقوم patch-package بالعمل آلياً هنا)
           npm install --legacy-peer-deps --force
           
-          # تشغيل سكريبت التطهير اليدوي كخطة بديلة
-          node patch-zegocloud.js || node scripts/patch-zegocloud.js || echo "Script skipped"
+          # تشغيل سكريبت التطهير اليدوي كضمانة إضافية لحذف typeof
+          if [ -f "patch-zegocloud.js" ]; then
+            node patch-zegocloud.js
+          elif [ -f "scripts/patch-zegocloud.js" ]; then
+            node scripts/patch-zegocloud.js
+          fi
 
       - name: 6. Launch EAS Cloud Build
         working-directory: ${{ env.PROJECT_ROOT }}
         run: |
-          # التأكد من اختفاء كلمة typeof المسببة للخطأ
-          grep -r "typeof " node_modules/@zegocloud || echo "✅ Code is Clean!"
+          # فحص أخير: إذا نجح التطهير، لن يظهر أي خطأ token 'typeof'
+          grep -r "typeof " node_modules/@zegocloud || echo "✅ Success: Code is clean of typeof errors!"
+          
+          # إطلاق البناء السحابي النهائي
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
