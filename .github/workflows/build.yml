@@ -24,25 +24,25 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: 4. Installation & Deep Patching
-        # العمل داخل المجلد الذي يحتوي على package.json و patches
+        # التوجه مباشرة لمجلد mobile (المسار الصحيح بناءً على هيكل مستودعك)
         working-directory: mobile
         run: |
-          # تنظيف الكاش والملفات القديمة لمنع خطأ Buffer
+          # تنظيف شامل لمنع أخطاء الذاكرة (Buffer) التي ظهرت في سجلاتك
           npm cache clean --force
           rm -rf node_modules package-lock.json || true
           
-          # تثبيت الحزم وتطبيق التصحيحات تلقائياً
+          # تثبيت الحزم (أداة patch-package ستطبق ملف الـ .patch تلقائياً)
           npm install --legacy-peer-deps --force
           
-          # مشرط الطوارئ (sed): حذف typeof المعطلة من ملفات ZegoCloud
+          # مشرط الطوارئ (sed): حذف typeof المعطلة بسرعة لتجنب استهلاك الذاكرة
           echo "Applying emergency cleaning for @zegocloud..."
           find node_modules/@zegocloud -name "*.js" -type f -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} +
 
       - name: 5. Launch EAS Cloud Build
         working-directory: mobile
         run: |
-          # التحقق من خلو المكتبة من الكلمة المسببة للخطأ
+          # فحص أخير للتأكد من نظافة الكود من كلمة typeof المسببة للخطأ
           grep -r "typeof " node_modules/@zegocloud || echo "✅ Success: Code is Clean!"
           
-          # إطلاق البناء في سحابة EAS
+          # إطلاق البناء السحابي مع مسح الكاش لضمان بداية نظيفة
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
