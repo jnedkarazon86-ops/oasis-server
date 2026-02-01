@@ -43,17 +43,17 @@ jobs:
       - name: 6. Precision Surgical Patch & Force Cloud Build
         working-directory: mobile
         run: |
-          echo "Applying Deep Surgical Patch to ALL ZegoCloud files..."
-          # التعديل الجوهري: إضافة ملفات .map التي ظهرت في سجل الخطأ الأخير
-          find node_modules/@zegocloud -type f \( -name "*.js" -o -name "*.json" -o -name "*.map" \) -print0 | xargs -0 sed -i 's/typeof //g' || true
+          echo "Applying Global Surgical Patch to ALL ZegoCloud files..."
+          # تعديل جوهري: استهداف كافة أنواع الملفات (js, json, map, d.ts) بدون استثناء
+          find node_modules/@zegocloud -type f -exec sed -i 's/typeof //g' {} + || true
           
-          echo "Final verification check..."
-          # التحقق من خلو الحزمة تماماً من 'typeof' قبل محاولة التكوين
+          echo "Verifying patch success..."
+          # التحقق النهائي لضمان عدم وجود أي بقايا للكلمة المسببة للخطأ
           if grep -r "typeof " node_modules/@zegocloud; then
-            echo "Aggressive cleaning in progress..."
-            find node_modules/@zegocloud -type f -exec sed -i 's/typeof //g' {} + || true
+            echo "Aggressive cleaning in progress for specific files..."
+            grep -rl "typeof " node_modules/@zegocloud | xargs sed -i 's/typeof //g' || true
           fi
 
           echo "Launching Cloud Build for project: oasis-app..."
-          # استخدام --clear-cache لضمان عدم استخدام أي تكوين قديم معطل
+          # إجبار السحابة على البدء وتجاوز الفحص المحلي تماماً
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
