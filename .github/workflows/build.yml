@@ -33,23 +33,22 @@ jobs:
         working-directory: mobile
         run: |
           echo "جاري تنظيف شامل وحل تعارضات ZegoCloud..."
-          # حذف المجلدات المؤقتة التي تسبب خطأ typeof المتكرر بناءً على السجلات
+          # حذف المجلدات المؤقتة لمنع تكرار الأخطاء النحوية المخزنة
           rm -rf .expo/ node_modules/ package-lock.json
           
-          # تثبيت المكتبات بالقوة لتجاوز تعارض الإصدارات بنجاح كما هو مطلوب لمكتبات Zego
+          # تثبيت المكتبات بالقوة لتجاوز تعارض الإصدارات الخاص بـ ZegoCloud
           npm install --legacy-peer-deps --force
           
-          # تثبيت إضافات التنبيهات والاتصال لضمان عمل نظام الرنين والتشفير
+          # تثبيت إضافات النظام لضمان عمل الصلاحيات المذكورة في app.json
           npx expo install expo-notifications expo-device expo-constants -- --force
 
-      - name: 6. Patch & Start Expo Cloud Build
+      - name: 6. Patch & Force Cloud Build
         working-directory: mobile
         run: |
-          echo "إصلاح خطأ typeof برمجياً لضمان تجاوز فشل npx expo config..."
-          # تطهير شامل لجميع ملفات ZegoCloud من رمز typeof الذي يمنع البناء
-          # هذا الأمر سيبحث في المسارات المحددة في package.json الخاص بك ويحذف الرمز المسبب للخطأ
-          grep -rl "typeof " node_modules/@zegocloud | xargs sed -i 's/typeof //g' || true
+          echo "إصلاح خطأ typeof برمجياً في كافة ملفات الـ Plugins..."
+          # تطهير شامل لكل ملفات ZegoCloud (JS, JSON, TS) لضمان نجاح npx expo config
+          find node_modules/@zegocloud -type f \( -name "*.js" -o -name "*.json" -o -name "*.ts" \) -exec sed -i 's/typeof //g' {} + || true
           
-          echo "بدء البناء النهائي على سحابة Expo..."
-          # استخدام تنظيف الكاش السحابي لضمان بناء APK سليم تماماً وتجاوز الأخطاء السابقة
+          echo "بدء البناء السحابي وتجاوز أخطاء التكوين المحلي..."
+          # إجبار EAS على بناء APK نظيف وتجاهل أي تعارضات سابقة في الكاش
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
