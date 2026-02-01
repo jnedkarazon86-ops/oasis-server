@@ -1,15 +1,13 @@
-name: Oasis App Build (Final Success Patch)
+name: Oasis App Build (Smart Path Fix)
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: 1. Checkout Code
         uses: actions/checkout@v4
@@ -19,17 +17,19 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 3. Sync Structure & Patches
-        # ضمان وجود مجلد التصحيحات بجانب package.json
+      - name: 3. Dynamic Structure Discovery
+        # هذا الأمر سيبحث عن مكان package.json الحقيقي وينقل العمل إليه
         run: |
-          mv "App.json ملف" app.json || mv "App.json" app.json || true
-          mv "package.json ملف" package.json || true
-          # التأكد من وجود مجلد patches في المسار الصحيح للـ Action
-          if [ -d "patches" ]; then
-            echo "✅ Patches directory found."
-          else
-            echo "⚠️ Warning: patches directory not found in root!"
-          fi
+          PACKAGE_PATH=$(find . -name "package.json" -not -path "*/node_modules/*" | head -n 1)
+          PROJECT_ROOT=$(dirname "$PACKAGE_PATH")
+          echo "PROJECT_ROOT=$PROJECT_ROOT" >> $GITHUB_ENV
+          
+          # تأكيد وجود المجلدات الضرورية للـ Patch
+          mkdir -p "$PROJECT_ROOT/patches"
+          cp -r patches/* "$PROJECT_ROOT/patches/" || true
+          
+          # توحيد أسماء الملفات في مكانها الصحيح
+          mv "$PROJECT_ROOT/App.json ملف" "$PROJECT_ROOT/app.json" || true
 
       - name: 4. Setup EAS CLI
         uses: expo/expo-github-action@v8
@@ -37,21 +37,16 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 5. Installation & Auto-Patching (Line 110 Fix)
-        # هنا سيتم تطبيق ملف @zegocloud+zego-uikit-rn+2.19.1.patch تلقائياً
+      - name: 5. Installation & Automatic Patching
+        working-directory: ${{ env.PROJECT_ROOT }}
         run: |
-          echo "Deep cleaning node_modules..."
-          rm -rf node_modules package-lock.json
-          
-          echo "Installing dependencies with Auto-Patch..."
-          # سيقوم سكريبت postinstall بتشغيل patch-package فوراً
+          echo "Current Path: $(pwd)"
+          rm -rf node_modules
           npm install --legacy-peer-deps --force
 
-      - name: 6. Launch Final EAS Cloud Build
+      - name: 6. Launch EAS Cloud Build
+        working-directory: ${{ env.PROJECT_ROOT }}
         run: |
-          echo "Verifying patch application..."
-          # التحقق من خلو الملف من كلمة typeof المسببة للانهيار
-          grep -r "typeof " node_modules/@zegocloud || echo "✅ Patch applied successfully!"
-          
-          echo "Launching EAS Cloud Build..."
+          # التحقق النهائي من نجاح الـ Patch الذي رفعته
+          grep -r "typeof " node_modules/@zegocloud || echo "✅ Patch is Active!"
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
