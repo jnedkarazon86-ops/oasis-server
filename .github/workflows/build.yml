@@ -34,11 +34,12 @@ jobs:
         run: |
           echo "جاري حل تعارض المكتبات بالقوة وتثبيت نظام الاتصال..."
           
-          # أضفنا --force لضمان تجاوز أخطاء ERESOLVE التي تظهر في صورتك
+          # الحل الجذري لتجاوز أخطاء ERESOLVE التي ظهرت في الصور
           npm install --legacy-peer-deps --force
           
-          # تثبيت إضافات التنبيهات الضرورية والتأكد من توافقها
+          # تثبيت إضافات التنبيهات والاتصال والتأكد من توافقها
           npx expo install expo-notifications expo-device expo-constants -- --force
           
-          echo "Starting final build on Expo Cloud..."
+          echo "Starting final build on Expo Cloud with clear cache..."
+          # بناء التطبيق مع مسح الكاش لضمان عدم تكرار الأخطاء السابقة
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
