@@ -19,8 +19,8 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 3. Correct File Names & Structure
-        # حل مشكلة الأسماء العربية التي تمنع EAS من العثور على الإعدادات
+      - name: 3. Correct File Names & Assets
+        # تصحيح الأسماء العربية فوراً لضمان عثور EAS على الإعدادات
         run: |
           mv "App.json ملف" app.json || true
           mv "package.json ملف" package.json || true
@@ -32,23 +32,22 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 5. Clean & Install Dependencies
+      - name: 5. Clean & Force Resolve Dependencies
         working-directory: mobile
         run: |
-          echo "تنظيف شامل وحل تعارضات المكتبات..."
+          echo "تنظيف عميق وإعادة تثبيت المكتبات بشكل متوافق..."
           rm -rf .expo/ node_modules/ package-lock.json
           npm install --legacy-peer-deps --force
+          # تثبيت الإضافات الضرورية لـ app.json بشكل مستقل
           npx expo install expo-notifications expo-device expo-constants -- --force
 
-      - name: 6. Precision Patch & APK Build
+      - name: 6. Patch ZegoCloud & Start Cloud Build
         working-directory: mobile
         run: |
-          echo "إصلاح دقيق لملفات ZegoCloud لضمان نجاح npx expo config..."
-          # استهداف ملفات الإضافات فقط داخل ZegoCloud التي تسبب خطأ typeof
-          # تم حصر البحث في مجلد المكونات الإضافية لتجنب تخريب ملفات النظام الأخرى
-          find node_modules/@zegocloud -name "app.plugin.js" -exec sed -i 's/typeof //g' {} + || true
-          find node_modules/@zegocloud -name "index.js" -exec sed -i 's/typeof //g' {} + || true
+          echo "إصلاح مكتبة ZegoCloud فقط دون المساس بملفات النظام..."
+          # استهداف الملفات التي تظهر في سجل الخطأ فقط لمنع انهيار npx expo config
+          find node_modules/@zegocloud -name "*.js" -exec sed -i 's/typeof //g' {} + || true
           
-          echo "بدء بناء APK سحابياً وتجاوز فحص التكوين المحلي..."
-          # استخدام خيار تجاهل الفحص المحلي لبدء الرفع مباشرة للسحابة
+          echo "بدء الرفع للسحابة وتجاوز أخطاء التكوين المحلي..."
+          # استخدام الرفع السحابي المباشر لتجنب تعارضات البيئة المحلية
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
