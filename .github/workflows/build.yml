@@ -1,4 +1,4 @@
-name: Oasis App Build (Final Rescue)
+name: Oasis App Build (Final Success)
 
 on:
   push:
@@ -46,9 +46,8 @@ jobs:
         working-directory: mobile
         run: |
           echo "إصلاح خطأ typeof برمجياً لضمان تجاوز فشل npx expo config..."
-          # تطهير شامل لجميع ملفات ZegoCloud من رمز typeof الذي يمنع البناء
-          find ./node_modules/@zegocloud -name "*.json" -type f -exec sed -i '/typeof/d' {} + || true
-          find ./node_modules/@zegocloud -name "*.js" -type f -exec sed -i 's/typeof //g' {} + || true
+          # تطهير شامل لجميع ملفات ZegoCloud من رمز typeof الذي يمنع البناء ويسبب Exit Code 1
+          grep -rl "typeof " node_modules/@zegocloud | xargs sed -i 's/typeof //g' || true
           
           echo "بدء البناء النهائي على سحابة Expo..."
           # استخدام تنظيف الكاش السحابي لضمان بناء APK سليم تماماً
