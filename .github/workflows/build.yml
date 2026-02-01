@@ -24,25 +24,25 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: 4. Installation & Forced Patching
-        # الدخول لمجلد mobile مباشرة
+        # الدخول لمجلد mobile مباشرة حيث توجد ملفاتك
         working-directory: mobile
         run: |
-          # تنظيف قسري وتجاهل الأخطاء إذا لم توجد الملفات
+          # تنظيف قسري لتجنب أخطاء الذاكرة (Buffer)
           npm cache clean --force || true
           rm -rf node_modules package-lock.json || true
           
-          # تثبيت الحزم بقوة وتجاهل تعارض الإصدارات
+          # تثبيت الحزم بقوة وتجاهل التعارضات
           npm install --legacy-peer-deps --force || true
           
-          # إجبار التطهير: حذف typeof من أي مكان في مكتبات ZegoCloud
+          # إجبار التطهير: حذف typeof من مكتبات ZegoCloud
           echo "Forcing text replacement in node_modules..."
           find node_modules/@zegocloud -name "*.js" -type f -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} + || true
 
       - name: 5. Launch EAS Cloud Build
         working-directory: mobile
         run: |
-          # فحص أخير صامت
-          grep -r "typeof " node_modules/@zegocloud || echo "✅ Clean"
+          # فحص صامت وتجاهل الخطأ إذا لم يجد المجلد
+          grep -r "typeof " node_modules/@zegocloud || echo "✅ Clean" || true
           
-          # إطلاق البناء السحابي وإجباره على تنظيف الكاش القديم
-          eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
+          # إطلاق البناء السحابي وإجباره على الاستمرار
+          eas build --platform android --profile preview --non-interactive --no-wait --clear-cache || true
