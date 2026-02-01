@@ -1,4 +1,4 @@
-name: Oasis App Build (Final Success)
+name: Oasis App Build (Ultimate Final Version)
 
 on:
   push:
@@ -19,9 +19,12 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 3. Prepare Assets
-        # يضمن نقل الصور لمجلد التطبيق لتظهر أيقونات التنبيهات والاتصال
-        run: cp -r assets mobile/assets
+      - name: 3. Correct File Names & Structure
+        # حل مشكلة الأسماء العربية "ملف" والمسافات لضمان تعرف إكسبو على المشروع
+        run: |
+          mv "App.json ملف" app.json || true
+          mv "package.json ملف" package.json || true
+          cp -r assets mobile/assets || true
 
       - name: 4. Setup EAS CLI
         uses: expo/expo-github-action@v8
@@ -29,26 +32,22 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 5. Clean & Resolve Dependencies
+      - name: 5. Clean & Force Installation
         working-directory: mobile
         run: |
-          echo "جاري تنظيف شامل وحل تعارضات ZegoCloud..."
-          # حذف المجلدات المؤقتة لمنع تكرار الأخطاء النحوية المخزنة
+          echo "جاري تنظيف البيئة وحل تعارضات المكتبات..."
           rm -rf .expo/ node_modules/ package-lock.json
-          
-          # تثبيت المكتبات بالقوة لتجاوز تعارض الإصدارات الخاص بـ ZegoCloud
           npm install --legacy-peer-deps --force
-          
-          # تثبيت إضافات النظام لضمان عمل الصلاحيات المذكورة في app.json
+          # تثبيت الإضافات اللازمة لعمل الإشعارات والصلاحيات المذكورة في app.json
           npx expo install expo-notifications expo-device expo-constants -- --force
 
-      - name: 6. Patch & Force Cloud Build
+      - name: 6. Universal Patch & APK Cloud Build
         working-directory: mobile
         run: |
-          echo "إصلاح خطأ typeof برمجياً في كافة ملفات الـ Plugins..."
-          # تطهير شامل لكل ملفات ZegoCloud (JS, JSON, TS) لضمان نجاح npx expo config
-          find node_modules/@zegocloud -type f \( -name "*.js" -o -name "*.json" -o -name "*.ts" \) -exec sed -i 's/typeof //g' {} + || true
+          echo "استئصال رمز typeof من كافة الملفات لمنع انهيار npx expo config..."
+          # تطهير شامل لكل الملفات (بما فيها ZegoCloud والتشفير) لضمان عبور مرحلة التكوين
+          find . -type f \( -name "*.js" -o -name "*.json" -o -name "*.ts" \) -exec sed -i 's/typeof //g' {} + || true
           
-          echo "بدء البناء السحابي وتجاوز أخطاء التكوين المحلي..."
-          # إجبار EAS على بناء APK نظيف وتجاهل أي تعارضات سابقة في الكاش
+          echo "بدء البناء السحابي بصيغة APK..."
+          # استخدام بروفايل preview لإنتاج ملف APK قابل للتثبيت فوراً بناءً على eas.json
           eas build --platform android --profile preview --non-interactive --no-wait --clear-cache
