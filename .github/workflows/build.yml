@@ -22,12 +22,17 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 📦 Install dependencies (Force Mode)
+      - name: 📦 Install dependencies
         run: |
           cd mobile
-          # إضافة --legacy-peer-deps هي المفتاح لحل مشكلة التضارب
           npm install --legacy-peer-deps
-          npx patch-package --patch-dir patches
+
+      - name: 🛠 Surgical Patch (Fix ZegoCloud Code)
+        run: |
+          cd mobile
+          # هذا الأمر يبحث عن السطر المعطل ويحذفه برمجياً لضمان عدم فشل البناء
+          sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" node_modules/@zegocloud/zego-uikit-rn/index.js || true
+          sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" node_modules/@zegocloud/zego-uikit-prebuilt-call-rn/index.js || true
 
       - name: 🚀 Build APK
         run: |
