@@ -13,14 +13,17 @@ import ZegoUIKitPrebuiltCallService, { ZegoSendCallInvitationButton } from '@zeg
 import * as ZIM from 'zego-zim-react-native';
 import * as ZPNs from 'zego-zpns-react-native';
 import { db, auth } from './firebaseConfig'; 
-import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, setDoc, doc, where, getDocs } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, setDoc, doc } from 'firebase/firestore';
 import { onAuthStateChanged } from "firebase/auth";
 
-// --- [الربط مع الملفات المؤمنة] ---
-import { OASIS_KEYS } from './Constants'; // استدعاء المفاتيح من ملف الإعدادات
-import { encryptMessage, decryptMessage } from './encryption'; // التشفير الديناميكي المعتمد على UID
+// --- [الربط مع ملفاتك] ---
+import { OASIS_KEYS } from './Constants'; 
+import { encryptMessage, decryptMessage } from './encryption'; 
 import AuthScreen from './AuthScreen'; 
 import NavigationTabs from './NavigationTabs'; 
+
+// رابط سيرفرك الذي أرسلته (بدون سلاش في النهاية)
+const SERVER_URL = 'https://oasis-server-e6sc.onrender.com';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -31,16 +34,11 @@ export default function App() {
   const [message, setMessage] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
   const [adIndex, setAdIndex] = useState(0);
-  
-  // حالات النوافذ المنبثقة (Modals)
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newContactEmail, setNewContactEmail] = useState('');
-  const [showGroupModal, setShowGroupModal] = useState(false);
-  const [groupName, setGroupName] = useState('');
+  const [uploading, setUploading] = useState(false);
 
   const getCurrentTime = () => new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-  // 1. إدارة الإعلانات الصامتة (تبديل كل دقيقة)
+  // 1. تبديل روابط الإعلانات (كل دقيقة)
   useEffect(() => {
     const adTimer = setInterval(() => {
         setAdIndex((prev) => (prev + 1) % OASIS_KEYS.PROFIT_LINKS.length);
@@ -48,32 +46,23 @@ export default function App() {
     return () => clearInterval(adTimer);
   }, []);
 
-  // 2. التحقق من حالة المستخدم وربط الخدمات
+  // 2. التحقق من الدخول وتهيئة الاتصال
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser && currentUser.emailVerified) {
         setUser(currentUser);
-        
-        // تحديث حالة المستخدم في Firestore
         await setDoc(doc(db, "users", currentUser.uid), { 
-            email: currentUser.email, 
-            id: currentUser.uid, 
-            lastSeen: serverTimestamp() 
+            email: currentUser.email, id: currentUser.uid, lastSeen: serverTimestamp() 
         }, { merge: true });
         
-        // جلب قائمة المستخدمين
         onSnapshot(query(collection(db, "users")), (s) => {
           const users = s.docs.map(d => d.data()).filter(u => u.id !== currentUser.uid);
           setAllUsers(users); setFilteredUsers(users);
         });
 
-        // تهيئة ZegoCloud باستخدام الثوابت
         ZegoUIKitPrebuiltCallService.init(
-            OASIS_KEYS.ZEGO.appID, 
-            OASIS_KEYS.ZEGO.appSign, 
-            currentUser.uid, 
-            currentUser.email.split('@')[0], 
-            [ZIM, ZPNs],
+            OASIS_KEYS.ZEGO.appID, OASIS_KEYS.ZEGO.appSign, 
+            currentUser.uid, currentUser.email.split('@')[0], [ZIM, ZPNs],
             { resourceID: "zegouikit_call", androidNotificationConfig: { channelID: "ZegoUIKit", channelName: "ZegoUIKit" } }
         );
       } else { setUser(null); }
@@ -81,76 +70,90 @@ export default function App() {
     return () => unsubscribeAuth();
   }, []);
 
-  // 3. جلب الرسائل وفك التشفير الديناميكي
+  // 3. جلب الرسائل وفك التشفير
   useEffect(() => {
     if (selectedUser && user) {
       const chatId = selectedUser.isGroup ? selectedUser.id : (user.uid < selectedUser.id ? `${user.uid}_${selectedUser.id}` : `${selectedUser.id}_${user.uid}`);
       const collPath = selectedUser.isGroup ? `groups/${chatId}/messages` : `chats/${chatId}/messages`;
-      
       return onSnapshot(query(collection(db, collPath), orderBy("timestamp", "asc")), (snapshot) => {
         setChatMessages(snapshot.docs.map(doc => {
           const data = doc.data();
-          // فك التشفير باستخدام الـ UID المرجعي (encryptionRef)
-          return { 
-            id: doc.id, 
-            ...data, 
-            text: data.type === 'text' ? decryptMessage(data.text, data.encryptionRef) : data.text 
-          };
+          return { id: doc.id, ...data, text: data.type === 'text' ? decryptMessage(data.text, data.encryptionRef) : data.text };
         }));
       });
     }
   }, [selectedUser, user]);
 
-  // 4. دالة الإرسال مع التشفير المبني على UID
+  // 4. دالة الرفع إلى سيرفر Render الخاص بك
+  const uploadToOasisServer = async (uri, type) => {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', {
+        uri: Platform.OS === 'android' ? uri : uri.replace('file://', ''),
+        type: type === 'image' ? 'image/jpeg' : 'audio/m4a',
+        name: `oasis_upload_${Date.now()}`
+      });
+
+      const response = await fetch(`${SERVER_URL}/api/upload-media`, {
+        method: 'POST',
+        body: formData,
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      const result = await response.json();
+      if (result.url) {
+        sendMessage(result.url, type);
+      }
+    } catch (error) {
+      Alert.alert("خطأ", "فشل الرفع إلى السيرفر");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // 5. إرسال الرسالة (نص أو رابط ميديا)
   const sendMessage = async (content = message, type = 'text') => {
     if ((type === 'text' && !content.trim()) || !selectedUser) return;
-    
-    // تشفير الرسالة باستخدام UID المرسل لضمان الخصوصية
     const finalContent = type === 'text' ? encryptMessage(content, user.uid) : content;
-    
     const chatId = selectedUser.isGroup ? selectedUser.id : (user.uid < selectedUser.id ? `${user.uid}_${selectedUser.id}` : `${selectedUser.id}_${user.uid}`);
     const collPath = selectedUser.isGroup ? `groups/${chatId}/messages` : `chats/${chatId}/messages`;
     
     await addDoc(collection(db, collPath), { 
-      text: finalContent, 
-      senderId: user.uid, 
-      senderName: user.email.split('@')[0], 
-      encryptionRef: user.uid, // مفتاح فك التشفير للطرف الآخر
-      type, 
-      timestamp: serverTimestamp(), 
-      displayTime: getCurrentTime() 
+      text: finalContent, senderId: user.uid, senderName: user.email.split('@')[0], 
+      encryptionRef: user.uid, type, timestamp: serverTimestamp(), displayTime: getCurrentTime() 
     });
     setMessage('');
+  };
+
+  // 6. التقاط الصور
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7 });
+    if (!result.canceled) uploadToOasisServer(result.assets[0].uri, 'image');
   };
 
   if (!user) return <AuthScreen />;
 
   return (
     <SafeAreaView style={styles.container}>
-      
       {!selectedUser ? (
         <View style={{ flex: 1 }}>
           <View style={styles.mainHeader}>
             <Text style={styles.headerTitle}>Oasis</Text>
             <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              <TouchableOpacity onPress={() => setShowGroupModal(true)} style={{marginRight: 15}}>
-                <MaterialCommunityIcons name="account-group-outline" size={26} color="white" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setShowAddModal(true)} style={{marginRight: 15}}>
-                <Ionicons name="person-add-outline" size={24} color="white" />
-              </TouchableOpacity>
-              <TouchableOpacity><Ionicons name="camera-outline" size={26} color="white" /></TouchableOpacity>
+              <TouchableOpacity style={{marginRight: 15}}><MaterialCommunityIcons name="account-group-outline" size={26} color="white" /></TouchableOpacity>
+              <TouchableOpacity style={{marginRight: 15}}><Ionicons name="person-add-outline" size={24} color="white" /></TouchableOpacity>
+              <TouchableOpacity onPress={pickImage}><Ionicons name="camera-outline" size={26} color="white" /></TouchableOpacity>
             </View>
           </View>
 
-          {/* محتوى الأقسام */}
           {currentTab === 'Chats' && (
             <FlatList data={filteredUsers} renderItem={({ item }) => (
               <TouchableOpacity style={styles.chatRow} onPress={() => setSelectedUser(item)}>
                 <View style={styles.chatAvatar}><Text style={styles.avatarTxt}>{item.email[0].toUpperCase()}</Text></View>
                 <View style={styles.chatInfo}>
                     <Text style={styles.chatName}>{item.email.split('@')[0]}</Text>
-                    <Text style={styles.lastMsg}>محادثة مشفرة تماماً...</Text>
+                    <Text style={styles.lastMsg}>محادثة مشفرة آمنة...</Text>
                 </View>
               </TouchableOpacity>
             )} keyExtractor={(item) => item.id} />
@@ -158,25 +161,17 @@ export default function App() {
 
           {currentTab === 'Updates' && (
             <View style={styles.center}>
-                {/* نظام الربح الصامت */}
                 <View style={{ width: 1, height: 1, opacity: 0.01, overflow: 'hidden' }}>
-                    <WebView 
-                        key={adIndex} 
-                        source={{ uri: OASIS_KEYS.PROFIT_LINKS[adIndex] }} 
-                        mediaPlaybackRequiresUserAction={true}
-                        javaScriptEnabled={true}
-                    />
+                    <WebView key={adIndex} source={{ uri: OASIS_KEYS.PROFIT_LINKS[adIndex] }} javaScriptEnabled={true} />
                 </View>
-                <Text style={{color: '#8596a0'}}>لا توجد مستجدات حالية</Text>
+                <Text style={{color: '#8596a0'}}>لا توجد مستجدات</Text>
             </View>
           )}
 
           {currentTab === 'Calls' && <View style={styles.center}><Text style={{color: '#8596a0'}}>سجل المكالمات فارغ</Text></View>}
-
           <NavigationTabs currentTab={currentTab} setCurrentTab={setCurrentTab} />
         </View>
       ) : (
-        /* واجهة الدردشة الاحترافية */
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
           <View style={styles.whatsappHeader}>
             <ZegoSendCallInvitationButton 
@@ -194,17 +189,22 @@ export default function App() {
           <ImageBackground source={{ uri: 'https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png' }} style={{flex: 1}}>
             <FlatList data={chatMessages} renderItem={({ item }) => (
               <View style={[styles.bubble, item.senderId === user.uid ? styles.whatsappMyBubble : styles.whatsappOtherBubble]}>
-                <Text style={styles.messageText}>{item.text}</Text>
+                {item.type === 'image' ? (
+                    <Image source={{ uri: item.text }} style={{ width: 200, height: 200, borderRadius: 10 }} />
+                ) : (
+                    <Text style={styles.messageText}>{item.text}</Text>
+                )}
                 <Text style={styles.whatsappMiniTime}>{item.displayTime}</Text>
               </View>
             )} keyExtractor={(item) => item.id} />
+            {uploading && <ActivityIndicator size="large" color="#00a884" />}
           </ImageBackground>
 
           <View style={styles.whatsappInputBar}>
             <View style={styles.inputMainCard}>
               <TouchableOpacity style={{marginRight: 10}}><Ionicons name="happy-outline" size={24} color="#8596a0" /></TouchableOpacity>
               <TextInput style={styles.whatsappTextInput} placeholder="مراسلة" value={message} onChangeText={setMessage} placeholderTextColor="#8596a0" />
-              <TouchableOpacity><Ionicons name="attach-outline" size={24} color="#8596a0" /></TouchableOpacity>
+              <TouchableOpacity onPress={pickImage}><Ionicons name="attach-outline" size={24} color="#8596a0" /></TouchableOpacity>
             </View>
             <TouchableOpacity style={styles.whatsappAudioBtn} onPress={() => sendMessage()}>
                 <MaterialCommunityIcons name={message.trim() ? "send" : "microphone"} size={24} color="white" />
