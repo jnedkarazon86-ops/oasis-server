@@ -1,4 +1,4 @@
-name: Oasis_Final_Cloud_Build
+Name: Oasis_Final_Cloud_Build
 
 on:
   push:
