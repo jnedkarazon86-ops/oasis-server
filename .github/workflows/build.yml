@@ -22,17 +22,18 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 📦 Prep & Clean Build
+      - name: 📦 Final Clean & Fix
         run: |
           cd mobile
-          # إزالة أي آثار لـ module قد تسبب خطأ الـ import
+          # مسح أي إعدادات تسبب خطأ الـ import
           npm pkg delete type
+          # تحويل أي ملف config.js إلى cjs لضمان القبول
+          find . -name "app.config.js" -exec mv {} {}.cjs \; || true
           npm install --legacy-peer-deps
-          # تطبيق الإصلاح الجراحي لـ ZegoCloud
+          # إصلاح ZegoCloud الجراحي
           find node_modules -name "index.js" -path "*zegocloud*" -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} + || true
 
       - name: 🚀 Build APK
         run: |
           cd mobile
-          # استخدام أمر البناء مع تجاهل أخطاء الـ config المزعجة
-          npx eas-cli build -p android --profile preview --non-interactive --no-wait
+          npx eas-cli build -p android --profile preview --non-interactive
