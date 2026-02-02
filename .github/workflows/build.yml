@@ -22,18 +22,17 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 📦 Prep & Final Fix
+      - name: 📦 Final Dependency Prep
         run: |
           cd mobile
-          # إزالة أي إعدادات قد تسبب تعارض في نظام الوحدات
+          # إزالة نوع module لضمان توافق expo config
           npm pkg delete type
           npm install --legacy-peer-deps
-          # إصلاح كود ZegoCloud جراحياً لتجنب خطأ typeof
+          # إصلاح ZegoCloud
           find node_modules -name "index.js" -path "*zegocloud*" -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} + || true
 
       - name: 🚀 Build APK
-        env:
-          EXPO_USE_METRO_REQUIRE: 1
         run: |
           cd mobile
-          npx eas-cli build -p android --profile preview --non-interactive
+          # استخدام محرك البناء في وضع التوافق
+          EXPO_USE_METRO_REQUIRE=1 npx eas-cli build -p android --profile preview --non-interactive
