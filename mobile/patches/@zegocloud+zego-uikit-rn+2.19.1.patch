@@ -1,5 +1,0 @@
---- a/node_modules/@zegocloud/zego-uikit-rn/index.js
-+++ b/node_modules/@zegocloud/zego-uikit-rn/index.js
-@@ -1,1 +1,1 @@
--import { typeof } from 'react-native';
-+/* typeof removed by patch-package */
