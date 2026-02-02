@@ -22,6 +22,7 @@
     "android": {
       "package": "com.oasis.app2026",
       "googleServicesFile": "./google-services.json",
+      "usesCleartextTraffic": true, 
       "permissions": [
         "CAMERA",
         "RECORD_AUDIO",
@@ -30,16 +31,15 @@
         "ACCESS_NETWORK_STATE",
         "INTERNET",
         "POST_NOTIFICATIONS",
-        "WAKE_LOCK"
+        "WAKE_LOCK",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
       ]
     },
     "extra": {
       "eas": {
         "projectId": "742d678c-90bd-4cf1-b261-604691b3cf53"
-      },
-      "firebaseApiKey": "AIzaSyBKPGFbYjqEacHoU61DiUYq4QJzHENVUE0",
-      "zegoAppId": 1773421291,
-      "zegoAppSign": "48f1a163421aeb2dfdf57ac214f51362d8733ee19be92d3745a160a2521de2d7"
+      }
     },
     "updates": {
       "url": "https://u.expo.dev/742d678c-90bd-4cf1-b261-604691b3cf53"
