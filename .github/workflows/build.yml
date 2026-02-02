@@ -25,7 +25,7 @@ jobs:
       - name: 📦 Match Credentials & Prep
         run: |
           cd mobile
-          # تأمين هوية التطبيق لتطابق مفتاحك (Keystore) المرفوع
+          # إنشاء app.json لضمان مطابقة الهوية com.aboahj.oasisapp مع المفتاح المرفوع
           echo '{
             "expo": {
               "name": "Oasis",
@@ -43,16 +43,17 @@ jobs:
             }
           }' > app.json
           
-          # إجبار التثبيت المحلي لتجاوز تعارض النسخ ERESOLVE
           npm pkg delete type
+          # حل مشكلة تعارض النسخ محلياً قبل الرفع
           npm install --legacy-peer-deps
           
-          # إصلاح ZegoCloud لضمان فتح نفق الاتصال
+          # إصلاح كود ZegoCloud لضمان استقرار الاتصال
           find node_modules -name "index.js" -path "*zegocloud*" -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} + || true
 
-      - name: 🚀 Build APK (Force Offline Bundle)
+      - name: 🚀 Build APK (Fixed Final Command)
         run: |
           cd mobile
-          # إجبار نظام EAS على تجاهل التحقق من التبعيات واستخدام ما تم تثبيته بالفعل
+          # إجبار الخادم على استخدام التبعيات القديمة دون توقف
           export NPM_CONFIG_LEGACY_PEER_DEPS=true
-          npx eas-cli build --platform android --profile preview --non-interactive --local-bundle
+          # استخدام الأمر القياسي الأكثر استقراراً لتجنب أخطاء الوسائط غير المعروفة
+          npx eas-cli build --platform android --profile preview --non-interactive
