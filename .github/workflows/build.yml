@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./mobile # تحديد مجلد العمل الرئيسي لحل جميع المشاكل
+        working-directory: ./mobile
 
     steps:
       - name: 🏗 Checkout repository
@@ -19,6 +19,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 18
+          cache: 'npm'
+          cache-dependency-path: './mobile/package-lock.json'
 
       - name: 🏗 Setup EAS
         uses: expo/expo-github-action@v8
@@ -30,9 +32,11 @@ jobs:
         run: npm install --legacy-peer-deps
 
       - name: 🛠 Surgical Patch (Fix ZegoCloud Code)
-        # هذا الأمر سيجد الملفات ويصلحها أينما كانت داخل المجلد
         run: |
           find node_modules -name "index.js" -path "*zegocloud*" -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} + || true
 
       - name: 🚀 Build APK
+        # أضفنا EXPO_USE_METRO_REQUIRE لضمان معالجة ملفات الإعدادات بشكل صحيح
+        env:
+          EXPO_USE_METRO_REQUIRE: 1
         run: npx eas-cli build -p android --profile preview --non-interactive
