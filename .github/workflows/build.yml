@@ -25,10 +25,10 @@ jobs:
       - name: 📦 Match Credentials & Prep
         run: |
           cd mobile
-          # إنشاء ملف الإعدادات لإجبار الخادم على قبول تعارض المكتبات (حل جذري لـ ERESOLVE)
+          # إعداد ملف الإعدادات لإجبار الخادم على قبول تعارض المكتبات (حل ERESOLVE)
           echo "legacy-peer-deps=true" > .npmrc
           
-          # إنشاء app.json لضمان مطابقة الهوية com.aboahj.oasisapp مع المفتاح المرفوع
+          # إنشاء app.json لضمان مطابقة الهوية com.aboahj.oasisapp
           echo '{
             "expo": {
               "name": "Oasis",
@@ -47,16 +47,18 @@ jobs:
           }' > app.json
           
           npm pkg delete type
-          # حل مشكلة تعارض النسخ محلياً قبل الرفع
           npm install --legacy-peer-deps
+          
+          # إصلاح جذري لتعارض الأسماء (حل أخطاء السطور 104 و 111 في السجل الأخير)
+          find node_modules -name "AndroidManifest.xml" -exec sed -i 's/package="com.zegouikitrebuiltcallrn"/ /g' {} + || true
           
           # إصلاح كود ZegoCloud لضمان استقرار الاتصال وفتح نفق البيانات
           find node_modules -name "index.js" -path "*zegocloud*" -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} + || true
 
-      - name: 🚀 Build APK (Fixed Final Command)
+      - name: 🚀 Build APK (Final Fix & Clear Cache)
         run: |
           cd mobile
-          # إجبار الخادم السحابي على استخدام التبعيات القديمة أثناء التجميع النهائي
+          # إجبار الخادم السحابي على استخدام التبعيات القديمة
           export NPM_CONFIG_LEGACY_PEER_DEPS=true
-          # استخدام الأمر القياسي الصحيح لتجنب أخطاء الوسائط (مثل خطأ سطر 17 السابق)
-          npx eas-cli build --platform android --profile preview --non-interactive
+          # استخدام خيار مسح التخزين المؤقت لضمان بناء نظيف تماماً
+          npx eas-cli build --platform android --profile preview --non-interactive --clear-cache
