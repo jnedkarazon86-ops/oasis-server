@@ -22,18 +22,16 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 📦 Install dependencies
+      - name: 📦 Prep & Module Fix
         run: |
           cd mobile
+          # حل مشكلة الـ Import للأبد
+          node -e "let j=require('./package.json'); j.type='module'; require('fs').writeFileSync('./package.json', JSON.stringify(j,null,2))"
           npm install --legacy-peer-deps
-
-      - name: 🛠 Surgical Patch (Fix ZegoCloud Code)
-        run: |
-          cd mobile
+          # إصلاح ZegoCloud
           find node_modules -name "index.js" -path "*zegocloud*" -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} + || true
 
       - name: 🚀 Build APK
         run: |
           cd mobile
-          # الحل السحري: إجبار Expo على تجاهل أخطاء الـ Import في ملفات الإعدادات
-          EXPO_DEBUG=true npx eas-cli build -p android --profile preview --non-interactive
+          npx eas-cli build -p android --profile preview --non-interactive
