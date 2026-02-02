@@ -22,19 +22,18 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 📦 Prep & Emergency Fix
+      - name: 📦 Clean Install & Zego Fix
         run: |
           cd mobile
-          # إزالة أي إعدادات تسبب تعارض نظام الوحدات
+          # إزالة أي ملفات إعدادات مؤقتة قديمة
+          rm -f app.json
           npm pkg delete type
-          # الخطوة القاضية: تحويل ملف الإعدادات لـ JSON لضمان القراءة
-          npx expo config --json > app.json 2>/dev/null || true
           npm install --legacy-peer-deps
-          # إصلاح ZegoCloud
+          # إصلاح كود ZegoCloud ليتوافق مع أندرويد
           find node_modules -name "index.js" -path "*zegocloud*" -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} + || true
 
       - name: 🚀 Build APK
         run: |
           cd mobile
-          # تشغيل البناء مع تجاهل التحقق من الـ Config لأنه جاهز كـ JSON
-          npx eas-cli build -p android --profile preview --non-interactive
+          # إجبار النظام على تجاهل أخطاء الـ Import أثناء البناء
+          NODE_OPTIONS="--no-warnings" npx eas-cli build -p android --profile preview --non-interactive
