@@ -7,10 +7,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./mobile
-
     steps:
       - name: 🏗 Checkout repository
         uses: actions/checkout@v4
@@ -19,8 +15,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: 'npm'
-          cache-dependency-path: './mobile/package-lock.json'
 
       - name: 🏗 Setup EAS
         uses: expo/expo-github-action@v8
@@ -29,14 +23,16 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: 📦 Install dependencies
-        run: npm install --legacy-peer-deps
+        run: |
+          cd mobile
+          npm install --legacy-peer-deps
 
       - name: 🛠 Surgical Patch (Fix ZegoCloud Code)
         run: |
+          cd mobile
           find node_modules -name "index.js" -path "*zegocloud*" -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} + || true
 
       - name: 🚀 Build APK
-        # أضفنا EXPO_USE_METRO_REQUIRE لضمان معالجة ملفات الإعدادات بشكل صحيح
-        env:
-          EXPO_USE_METRO_REQUIRE: 1
-        run: npx eas-cli build -p android --profile preview --non-interactive
+        run: |
+          cd mobile
+          npx eas-cli build -p android --profile preview --non-interactive
