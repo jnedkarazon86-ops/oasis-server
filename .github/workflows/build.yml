@@ -2,7 +2,7 @@ name: Oasis Auto Build APK
 on:
   push:
     branches:
-      - main  # سيتم البناء تلقائياً عند رفع أي ملف لهذا الفرع
+      - main
 
 jobs:
   build:
@@ -20,12 +20,13 @@ jobs:
         uses: expo/expo-github-action@v8
         with:
           eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }} # يجب إضافة هذا المفتاح في إعدادات مستودعك
+          token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 📦 Install dependencies
+      - name: 📦 Install dependencies (Force Mode)
         run: |
           cd mobile
-          npm install
+          # إضافة --legacy-peer-deps هي المفتاح لحل مشكلة التضارب
+          npm install --legacy-peer-deps
           npx patch-package --patch-dir patches
 
       - name: 🚀 Build APK
