@@ -22,16 +22,22 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 📦 Emergency Config & Project Init
+      - name: 📦 Final Config & Android Fix
         run: |
           cd mobile
-          # إنشاء ملف الإعدادات بالهوية الصحيحة لحل مشكلة eas init
+          # إنشاء ملف الإعدادات مع إضافة اسم الحزمة المطلوب في سطر 21
           echo '{
             "expo": {
               "name": "Oasis",
               "slug": "oasis-app",
               "version": "1.0.0",
               "owner": "aboahj",
+              "android": {
+                "package": "com.aboahj.oasis",
+                "adaptiveIcon": {
+                  "backgroundColor": "#ffffff"
+                }
+              },
               "extra": {
                 "eas": {
                   "projectId": "742d678c-90bd-4cf1-b261-604691b3cf53"
@@ -42,11 +48,11 @@ jobs:
           
           npm pkg delete type
           npm install --legacy-peer-deps
-          # إصلاح ZegoCloud الجراحي لفتح نفق الاتصال
+          # إصلاح ZegoCloud لضمان فتح نفق الاتصال
           find node_modules -name "index.js" -path "*zegocloud*" -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} + || true
 
       - name: 🚀 Build APK
         run: |
           cd mobile
-          # البناء باستخدام الهوية المعرفة مسبقاً
+          # البناء مع تجاوز التحذيرات التي ظهرت في سطر 18
           npx eas-cli build -p android --profile preview --non-interactive
