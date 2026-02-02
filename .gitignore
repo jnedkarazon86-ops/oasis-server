@@ -4,3 +4,10 @@ dist/
 npm-debug.log*
 .env*.local
 .DS_Store
+
+# إضافات هامة لمشروعك
+*.jks
+*.p12
+*.key
+/android/build/
+/ios/build/
