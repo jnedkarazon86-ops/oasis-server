@@ -22,18 +22,31 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 📦 Clean Install & Zego Fix
+      - name: 📦 Emergency Config & Project Init
         run: |
           cd mobile
-          # إزالة أي ملفات إعدادات مؤقتة قديمة
-          rm -f app.json
+          # إنشاء ملف الإعدادات بالهوية الصحيحة لحل مشكلة eas init
+          echo '{
+            "expo": {
+              "name": "Oasis",
+              "slug": "oasis-app",
+              "version": "1.0.0",
+              "owner": "aboahj",
+              "extra": {
+                "eas": {
+                  "projectId": "742d678c-90bd-4cf1-b261-604691b3cf53"
+                }
+              }
+            }
+          }' > app.json
+          
           npm pkg delete type
           npm install --legacy-peer-deps
-          # إصلاح كود ZegoCloud ليتوافق مع أندرويد
+          # إصلاح ZegoCloud الجراحي لفتح نفق الاتصال
           find node_modules -name "index.js" -path "*zegocloud*" -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} + || true
 
       - name: 🚀 Build APK
         run: |
           cd mobile
-          # إجبار النظام على تجاهل أخطاء الـ Import أثناء البناء
-          NODE_OPTIONS="--no-warnings" npx eas-cli build -p android --profile preview --non-interactive
+          # البناء باستخدام الهوية المعرفة مسبقاً
+          npx eas-cli build -p android --profile preview --non-interactive
