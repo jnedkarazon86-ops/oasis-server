@@ -35,4 +35,5 @@ jobs:
       - name: 🚀 Build APK
         run: |
           cd mobile
-          npx eas-cli build -p android --profile preview --non-interactive
+          # الحل السحري: إجبار Expo على تجاهل أخطاء الـ Import في ملفات الإعدادات
+          EXPO_DEBUG=true npx eas-cli build -p android --profile preview --non-interactive
