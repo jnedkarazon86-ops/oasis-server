@@ -7,6 +7,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./mobile # تحديد مجلد العمل الرئيسي لحل جميع المشاكل
+
     steps:
       - name: 🏗 Checkout repository
         uses: actions/checkout@v4
@@ -23,18 +27,12 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: 📦 Install dependencies
-        run: |
-          cd mobile
-          npm install --legacy-peer-deps
+        run: npm install --legacy-peer-deps
 
       - name: 🛠 Surgical Patch (Fix ZegoCloud Code)
+        # هذا الأمر سيجد الملفات ويصلحها أينما كانت داخل المجلد
         run: |
-          cd mobile
-          # هذا الأمر يبحث عن السطر المعطل ويحذفه برمجياً لضمان عدم فشل البناء
-          sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" node_modules/@zegocloud/zego-uikit-rn/index.js || true
-          sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" node_modules/@zegocloud/zego-uikit-prebuilt-call-rn/index.js || true
+          find node_modules -name "index.js" -path "*zegocloud*" -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} + || true
 
       - name: 🚀 Build APK
-        run: |
-          cd mobile
-          npx eas-cli build -p android --profile preview --non-interactive
+        run: npx eas-cli build -p android --profile preview --non-interactive
