@@ -22,16 +22,18 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 📦 Prep & Module Fix
+      - name: 📦 Prep & Final Fix
         run: |
           cd mobile
-          # حل مشكلة الـ Import للأبد
-          node -e "let j=require('./package.json'); j.type='module'; require('fs').writeFileSync('./package.json', JSON.stringify(j,null,2))"
+          # إزالة أي إعدادات قد تسبب تعارض في نظام الوحدات
+          npm pkg delete type
           npm install --legacy-peer-deps
-          # إصلاح ZegoCloud
+          # إصلاح كود ZegoCloud جراحياً لتجنب خطأ typeof
           find node_modules -name "index.js" -path "*zegocloud*" -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} + || true
 
       - name: 🚀 Build APK
+        env:
+          EXPO_USE_METRO_REQUIRE: 1
         run: |
           cd mobile
           npx eas-cli build -p android --profile preview --non-interactive
