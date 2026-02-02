@@ -25,7 +25,7 @@ jobs:
       - name: 📦 Match Credentials & Prep
         run: |
           cd mobile
-          # إنشاء app.json مطابق تماماً لبياناتك في Expo Credentials
+          # إنشاء app.json لضمان مطابقة Package Name مع Keystore
           echo '{
             "expo": {
               "name": "Oasis",
@@ -43,13 +43,17 @@ jobs:
             }
           }' > app.json
           
+          # مسح أي قيود قديمة وتثبيت التبعيات مع تجاهل التعارضات
           npm pkg delete type
           npm install --legacy-peer-deps
-          # إصلاح ZegoCloud لضمان عمل "نفق الاتصال"
+          
+          # إصلاح ZegoCloud لضمان فتح نفق الاتصال
           find node_modules -name "index.js" -path "*zegocloud*" -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} + || true
 
-      - name: 🚀 Build APK (Using Your Keystore)
+      - name: 🚀 Build APK (Force Integration)
         run: |
           cd mobile
-          # الآن النظام سيتعرف على المفتاح الموجود في سطر 23 آلياً
-          npx eas-cli build -p android --profile preview --non-interactive
+          # تفعيل خيار التجاهل التلقائي لتعارضات المكتبات أثناء البناء السحابي
+          export NPM_CONFIG_LEGACY_PEER_DEPS=true
+          # بناء التطبيق مع استخدام مفتاح التوقيع المرفوع مسبقاً
+          npx eas-cli build -p android --profile preview --non-interactive --auto-submit-credentials
