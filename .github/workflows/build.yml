@@ -1,4 +1,4 @@
-name: Oasis Auto Build APK
+name: Oasis Final Build
 on:
   push:
     branches:
@@ -22,10 +22,10 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: 📦 Final Config & Android Fix
+      - name: 📦 Match Credentials & Prep
         run: |
           cd mobile
-          # إنشاء ملف الإعدادات مع إضافة اسم الحزمة المطلوب في سطر 21
+          # إنشاء app.json مطابق تماماً لبياناتك في Expo Credentials
           echo '{
             "expo": {
               "name": "Oasis",
@@ -33,10 +33,7 @@ jobs:
               "version": "1.0.0",
               "owner": "aboahj",
               "android": {
-                "package": "com.aboahj.oasis",
-                "adaptiveIcon": {
-                  "backgroundColor": "#ffffff"
-                }
+                "package": "com.aboahj.oasisapp"
               },
               "extra": {
                 "eas": {
@@ -48,11 +45,11 @@ jobs:
           
           npm pkg delete type
           npm install --legacy-peer-deps
-          # إصلاح ZegoCloud لضمان فتح نفق الاتصال
+          # إصلاح ZegoCloud لضمان عمل "نفق الاتصال"
           find node_modules -name "index.js" -path "*zegocloud*" -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} + || true
 
-      - name: 🚀 Build APK
+      - name: 🚀 Build APK (Using Your Keystore)
         run: |
           cd mobile
-          # البناء مع تجاوز التحذيرات التي ظهرت في سطر 18
+          # الآن النظام سيتعرف على المفتاح الموجود في سطر 23 آلياً
           npx eas-cli build -p android --profile preview --non-interactive
