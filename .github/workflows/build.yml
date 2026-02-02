@@ -28,7 +28,7 @@ jobs:
           # حل جذري لخطأ ERESOLVE ومنع توقف البناء في الثواني الأولى
           echo "legacy-peer-deps=true" > .npmrc
           
-          # تأمين هوية التطبيق com.aboahj.oasisapp لتطابق مفتاح التوقيع
+          # تأمين هوية التطبيق لتطابق مفتاح التوقيع
           echo '{
             "expo": {
               "name": "Oasis",
@@ -48,13 +48,13 @@ jobs:
           
           npm pkg delete type
           
-          # تثبيت المكتبات المفقودة التي سببت فشل سطر 1038 و 911 (الملاحة وواجهات Zego)
-          npm install react-delegate-component @react-navigation/native-stack --save --legacy-peer-deps
+          # [تحديث] تثبيت المكتبات المفقودة (الملاحة، واجهات Zego، والتشفير) لضمان عبور مرحلة الـ Bundle
+          npm install react-delegate-component @react-navigation/native-stack crypto-js --save --legacy-peer-deps
           
           # دمج التبعيات العامة للمشروع
           npm install --legacy-peer-deps
           
-          # إصلاح تعارض الأسماء في AndroidManifest لضمان عبور مرحلة gradlew
+          # إصلاح تعارض الأسماء في AndroidManifest لضمان عبور مرحلة gradlew بنجاح
           find node_modules -name "AndroidManifest.xml" -exec sed -i 's/package="com.zegouikitrebuiltcallrn"/ /g' {} + || true
           
           # إصلاح كود ZegoCloud لفتح نفق البيانات المشفر بنجاح
@@ -65,5 +65,5 @@ jobs:
           cd mobile
           # إجبار الخادم السحابي على قبول التعارضات أثناء التجميع النهائي
           export NPM_CONFIG_LEGACY_PEER_DEPS=true
-          # استخدام --clear-cache لضمان دمج الأكواد الجديدة وحذف أي ملفات تالفة من المحاولات السابقة
+          # استخدام --clear-cache لضمان حذف أي ملفات تالفة من المحاولات السابقة
           npx eas-cli build --platform android --profile preview --non-interactive --clear-cache
