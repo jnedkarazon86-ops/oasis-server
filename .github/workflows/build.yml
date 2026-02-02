@@ -47,9 +47,14 @@ jobs:
           }' > app.json
           
           npm pkg delete type
+          
+          # تثبيت المكتبة المفقودة التي سببت خطأ سطر 911 في المحاولة السابقة
+          npm install react-delegate-component --save --legacy-peer-deps
+          
+          # حل مشكلة تعارض النسخ العام
           npm install --legacy-peer-deps
           
-          # إصلاح جذري لتعارض الأسماء (حل أخطاء السطور 104 و 111 في السجل الأخير)
+          # إصلاح جذري لتعارض الأسماء (حل أخطاء السطور 104 و 111)
           find node_modules -name "AndroidManifest.xml" -exec sed -i 's/package="com.zegouikitrebuiltcallrn"/ /g' {} + || true
           
           # إصلاح كود ZegoCloud لضمان استقرار الاتصال وفتح نفق البيانات
@@ -60,5 +65,5 @@ jobs:
           cd mobile
           # إجبار الخادم السحابي على استخدام التبعيات القديمة
           export NPM_CONFIG_LEGACY_PEER_DEPS=true
-          # استخدام خيار مسح التخزين المؤقت لضمان بناء نظيف تماماً
+          # استخدام خيار مسح التخزين المؤقت لضمان بناء نظيف تماماً وتفادي أخطاء الـ Gradle السابقة
           npx eas-cli build --platform android --profile preview --non-interactive --clear-cache
