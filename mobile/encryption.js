@@ -1,17 +1,32 @@
 import CryptoJS from 'react-native-crypto-js';
 
-const SECRET_KEY = "Oasis_Secure_Key_2026"; 
+// هاد "الملح" بيبقى ثابت في التطبيق لزيادة قوة التشفير
+const SALT = "Oasis_Legacy_Secure_#!2026"; 
 
-export const encryptMessage = (message) => {
-  if (!message) return ""; // حماية ضد القيم الفارغة
-  return CryptoJS.AES.encrypt(String(message), SECRET_KEY).toString();
+/**
+ * التشفير باستخدام UID المستخدم
+ * هاد بيخلي كل مستخدم عنده "خزنة" خاصة فيه مستحيل تنفتح بمفتاح مستخدم تاني
+ */
+export const encryptMessage = (message, userUid) => {
+  if (!message || !userUid) return ""; 
+  
+  // دمج الـ UID مع الـ SALT لإنشاء مفتاح فريد جداً
+  const dynamicKey = userUid + SALT;
+  
+  return CryptoJS.AES.encrypt(String(message), dynamicKey).toString();
 };
 
-export const decryptMessage = (cipherText) => {
-  if (!cipherText) return "";
+/**
+ * فك التشفير باستخدام UID المستخدم
+ */
+export const decryptMessage = (cipherText, userUid) => {
+  if (!cipherText || !userUid) return "";
   try {
-    const bytes = CryptoJS.AES.decrypt(cipherText, SECRET_KEY);
+    const dynamicKey = userUid + SALT;
+    const bytes = CryptoJS.AES.decrypt(cipherText, dynamicKey);
     const originalText = bytes.toString(CryptoJS.enc.Utf8);
+    
+    // إذا فشل فك التشفير أو كان النص فارغاً
     return originalText || "رسالة مشفرة"; 
   } catch (e) { 
     return "رسالة مشفرة"; 
