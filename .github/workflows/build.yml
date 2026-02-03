@@ -25,10 +25,10 @@ jobs:
       - name: 📦 Match Credentials & Prep
         run: |
           cd mobile
-          # إجبار npm على قبول تداخل التبعيات لضمان عدم توقف التحميل
+          # إجبار npm على قبول تداخل التبعيات لضمان تثبيت حزم Zego و Expo بنجاح
           echo "legacy-peer-deps=true" > .npmrc
           
-          # [حل جذري لخطأ الصورة 1000079122] تعريف الـ SDK يدوياً في ملف الإعدادات
+          # [حل خطأ الصور 1000079122 و 1000079128] تعريف الـ SDK يدوياً لحل مشكلة compileSdkVersion
           echo '{
             "expo": {
               "name": "Oasis",
@@ -53,7 +53,7 @@ jobs:
           # 1. تثبيت أدوات بناء Expo الأساسية (لحل أخطاء الصور 1000079056 و 1000079058)
           npm install @expo/config-plugins@~8.0.0 @expo/prebuild-config expo-modules-core@~1.12.0 --save --legacy-peer-deps
           
-          # 2. تثبيت مكتبات الإشعارات والاتصال (ZegoCloud) المطلوبة في App.js
+          # 2. تثبيت مكتبات الإشعارات والاتصال (ZegoCloud) المطلوبة للاتصال الحقيقي
           npm install expo-notifications expo-device expo-constants crypto-js react-delegate-component --save --legacy-peer-deps
           npm install @zegocloud/zego-uikit-prebuilt-call-rn zego-zim-react-native zego-zpns-react-native --save --legacy-peer-deps
           
@@ -67,7 +67,7 @@ jobs:
           find node_modules -name "*.gradle" -exec sed -i 's/extra\[/project.ext\[/g' {} + || true
           find node_modules -name "*.kts" -exec sed -i 's/extensions.extraProperties/project.ext/g' {} + || true
           
-          # إصلاح تعارضات أسماء الحزم في مكتبات Zego لضمان عبور مرحلة التجميع
+          # إصلاح تعارضات أسماء الحزم في مكتبات Zego لضمان عبور مرحلة التجميع النهائي
           find node_modules -name "AndroidManifest.xml" -exec sed -i 's/package="com.zegouikitrebuiltcallrn"/ /g' {} + || true
           find node_modules -name "index.js" -path "*zegocloud*" -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} + || true
 
@@ -75,5 +75,5 @@ jobs:
         run: |
           cd mobile
           export NPM_CONFIG_LEGACY_PEER_DEPS=true
-          # استخدام --clear-cache لمسح بقايا المحاولات الفاشلة الموضحة في الصور وضمان بناء نظيف
+          # استخدام --clear-cache لمسح بقايا المحاولات الفاشلة الموضحة في صور السجلات وضمان بناء نظيف
           npx eas-cli build --platform android --profile preview --non-interactive --clear-cache
