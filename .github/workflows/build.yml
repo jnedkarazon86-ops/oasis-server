@@ -25,10 +25,9 @@ jobs:
       - name: 📦 Match Credentials & Prep
         run: |
           cd mobile
-          # حل مشكلة التعارضات العالمية ومنع توقف البناء
+          # حل تعارضات npm
           echo "legacy-peer-deps=true" > .npmrc
           
-          # تأمين هوية التطبيق وتحديث الإعدادات لتشمل التراخيص المطلوبة في App.js
           echo '{
             "expo": {
               "name": "Oasis",
@@ -40,36 +39,35 @@ jobs:
                 "permissions": ["CAMERA", "RECORD_AUDIO", "POST_NOTIFICATIONS"]
               },
               "extra": {
-                "eas": {
-                  "projectId": "742d678c-90bd-4cf1-b261-604691b3cf53"
-                }
+                "eas": { "projectId": "742d678c-90bd-4cf1-b261-604691b3cf53" }
               }
             }
           }' > app.json
           
           npm pkg delete type
           
-          # [إصلاح أخطاء الصور 1000079056 و 1000079058]
-          # تثبيت المكتبات الأساسية المفقودة التي يحتاجها محرك Gradle و Kotlin للتعامل مع الإضافات
-          npm install @expo/config-plugins @expo/prebuild-config expo-modules-core --save --legacy-peer-deps
-          
-          # تثبيت المكتبات المطلوبة لعمل الإشعارات والاتصال والتشفير في App.js
+          # تثبيت المكتبات الأساسية مع تحديد إصدارات مستقرة
+          npm install @expo/config-plugins@~8.0.0 @expo/prebuild-config expo-modules-core@~1.12.0 --save --legacy-peer-deps
           npm install expo-notifications expo-device expo-constants crypto-js react-delegate-component --save --legacy-peer-deps
           npm install @zegocloud/zego-uikit-prebuilt-call-rn zego-zim-react-native zego-zpns-react-native --save --legacy-peer-deps
           
-          # التثبيت النهائي الشامل لكافة التبعيات
+          # التثبيت الشامل
           npm install --legacy-peer-deps
           
-          # إصلاح تعارض الأسماء في أندرويد لضمان عبور مرحلة التجميع النهائي (Gradle)
+          # [إصلاح سحري] تصحيح مراجع Kotlin و Gradle التي سببت الفشل في الصور
+          # استبدال المصطلحات القديمة التي سببت أخطاء Unresolved reference بمصطلحات متوافقة
+          find node_modules -name "*.gradle" -exec sed -i 's/extensions.extraProperties/project.ext/g' {} + || true
+          find node_modules -name "*.gradle" -exec sed -i 's/extra\[/project.ext\[/g' {} + || true
+          
+          # إصلاح تعارض أسماء ZegoCloud في الأندرويد
           find node_modules -name "AndroidManifest.xml" -exec sed -i 's/package="com.zegouikitrebuiltcallrn"/ /g' {} + || true
           
-          # إصلاحات الأخطاء البرمجية داخل مكتبات Zego لضمان التوافق مع React Native الحديث
+          # تنظيف كود التوع (typeof) المتعارض مع الإصدارات الحديثة
           find node_modules -name "index.js" -path "*zegocloud*" -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} + || true
 
       - name: 🚀 Build APK (Final Fix & Clear Cache)
         run: |
           cd mobile
-          # إجبار السيرفر على تجاهل تعارضات الإصدارات أثناء التجميع
           export NPM_CONFIG_LEGACY_PEER_DEPS=true
-          # استخدام --clear-cache لمسح بقايا البناء الفاشل وضمان بناء نظيف تماماً
+          # إجبار البناء على تجاهل الذاكرة المؤقتة تماماً لضمان تطبيق الإصلاحات اليدوية
           npx eas-cli build --platform android --profile preview --non-interactive --clear-cache
