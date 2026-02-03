@@ -29,7 +29,7 @@ jobs:
           cd mobile
           echo "legacy-peer-deps=true" > .npmrc
           
-          # إعداد eas.json لضمان القناة وبيئة البناء الصحيحة
+          # 1. إنشاء eas.json (لحل مشكلة التعليق في المحاولة 386)
           echo '{
             "build": {
               "preview": {
@@ -42,7 +42,7 @@ jobs:
             }
           }' > eas.json
 
-          # إعداد app.json لضمان تعريفات الأندرويد الأساسية
+          # 2. إنشاء app.json (لعلاج نقص sdkVersion الظاهر في 10 صور على الأقل)
           echo '{
             "expo": {
               "name": "Oasis",
@@ -63,20 +63,25 @@ jobs:
           
           npm pkg delete type
           npm install --legacy-peer-deps
-          
-          # [تصحيح خطأ الصورة 1000079246]: الحقن بطريقة متوافقة مع Gradle 8.3
-          # سنستخدم علامة (=) ونضع الإعدادات داخل بلوك android مباشرة لضمان التعرف عليها
-          find node_modules -name "*.gradle" -exec sed -i '/android {/a \    namespace = "com.oasis.app"\n    compileSdkVersion = 34\n    targetSdkVersion = 34' {} + || true
 
-          # تصحيح مراجع Kotlin لضمان عدم تعارض المكونات
+          # 3. توليد ملفات الأندرويد (Prebuild) لضمان وجود مسار android/build.gradle
+          npx expo prebuild --platform android --no-install
+
+          # 4. [تصحيح خطأ الصورة 1000079246]: الحقن المتوافق مع Gradle 8.3
+          # استخدمنا "=" و "compileSdk" ليتناسب مع متطلبات السطر 16 في سجلاتك
+          find android -name "build.gradle" -exec sed -i '/android {/a \    namespace = "com.oasis.app"\n    compileSdk = 34\n    targetSdk = 34' {} + || true
+          
+          # 5. معالجة كافة مكتبات node_modules (لحل أخطاء Evaluating project :expo)
+          # هذا السطر يبحث عن أي ملف gradle في المكتبات ويحقن فيه الإعدادات الناقصة
+          find node_modules -name "*.gradle" -exec sed -i '/android {/a \    namespace = "com.oasis.app"\n    compileSdk = 34' {} + || true
+
+          # 6. تصحيح مراجع Kotlin و ZegoCloud (علاج أخطاء التوافقية)
           find node_modules -name "*.gradle" -exec sed -i 's/extensions.extraProperties/project.ext/g' {} + || true
           find node_modules -name "*.kts" -exec sed -i 's/extensions.extraProperties/project.ext/g' {} + || true
-          
-          # إصلاح تعارضات ZegoCloud والاتصال
           find node_modules -name "AndroidManifest.xml" -exec sed -i 's/package="com.zegouikitrebuiltcallrn"/ /g' {} + || true
 
       - name: 🚀 Build APK (Final Fix & Clear Cache)
         run: |
           cd mobile
-          # إجبار النظام على بناء نظيف تماماً لمسح أخطاء المحاولات السابقة
+          # التنظيف ضروري جداً لأن صورك أظهرت بقاء ملفات من محاولات فاشلة
           npx eas-cli build --platform android --profile preview --non-interactive --clear-cache
