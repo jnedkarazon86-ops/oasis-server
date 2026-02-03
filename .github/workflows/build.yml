@@ -25,7 +25,7 @@ jobs:
       - name: 📦 Match Credentials & Prep
         run: |
           cd mobile
-          # حل مشكلة التعارضات ومنع توقف البناء بسبب الحماية الصارمة لـ npm
+          # حل مشكلة التعارضات العالمية ومنع توقف البناء
           echo "legacy-peer-deps=true" > .npmrc
           
           # تأمين هوية التطبيق وتحديث الإعدادات لتشمل التراخيص المطلوبة في App.js
@@ -49,14 +49,15 @@ jobs:
           
           npm pkg delete type
           
-          # [حل الخطأ المكتشف في الصورة] إجبار المكتبات على التوافق مع نسخة Gradle السحابية
-          npm install @expo/config-plugins expo-modules-core --save --legacy-peer-deps
+          # [إصلاح أخطاء الصور 1000079056 و 1000079058]
+          # تثبيت المكتبات الأساسية المفقودة التي يحتاجها محرك Gradle و Kotlin للتعامل مع الإضافات
+          npm install @expo/config-plugins @expo/prebuild-config expo-modules-core --save --legacy-peer-deps
           
-          # [تحديث هام] تثبيت المكتبات الجديدة لضمان عمل الإشعارات والاتصال
+          # تثبيت المكتبات المطلوبة لعمل الإشعارات والاتصال والتشفير في App.js
           npm install expo-notifications expo-device expo-constants crypto-js react-delegate-component --save --legacy-peer-deps
           npm install @zegocloud/zego-uikit-prebuilt-call-rn zego-zim-react-native zego-zpns-react-native --save --legacy-peer-deps
           
-          # تثبيت بقية تبعيات المشروع
+          # التثبيت النهائي الشامل لكافة التبعيات
           npm install --legacy-peer-deps
           
           # إصلاح تعارض الأسماء في أندرويد لضمان عبور مرحلة التجميع النهائي (Gradle)
@@ -70,5 +71,5 @@ jobs:
           cd mobile
           # إجبار السيرفر على تجاهل تعارضات الإصدارات أثناء التجميع
           export NPM_CONFIG_LEGACY_PEER_DEPS=true
-          # استخدام --clear-cache لمسح أي مخلفات من المحاولات السابقة
+          # استخدام --clear-cache لمسح بقايا البناء الفاشل وضمان بناء نظيف تماماً
           npx eas-cli build --platform android --profile preview --non-interactive --clear-cache
