@@ -4,7 +4,7 @@ on:
     branches:
       - main
       - master
-  workflow_dispatch: # يسمح بتشغيل البناء يدوياً من تبويب Actions في حال لم يبدأ تلقائياً
+  workflow_dispatch:
 
 jobs:
   build:
@@ -27,10 +27,21 @@ jobs:
       - name: 📦 Match Credentials & Prep
         run: |
           cd mobile
-          # حل تعارضات npm لضمان تثبيت حزم Zego و Expo بنجاح
           echo "legacy-peer-deps=true" > .npmrc
           
-          # [حل جذري لخطأ compileSdkVersion الموضح في السجلات]
+          # [تعديل eas.json] لفرض بيئة بناء تدعم SDK 34 وتتجاوز أخطاء الصور 1000079138 و 1000079200
+          echo '{
+            "build": {
+              "preview": {
+                "android": {
+                  "buildType": "apk",
+                  "image": "ubuntu-22.04-jdk-17-ndk-r25b"
+                }
+              }
+            }
+          }' > eas.json
+
+          # إعداد app.json لتعريف الـ SDK يدوياً (علاج خطأ compileSdkVersion is not specified)
           echo '{
             "expo": {
               "name": "Oasis",
@@ -41,8 +52,7 @@ jobs:
                 "package": "com.aboahj.oasisapp",
                 "compileSdkVersion": 34,
                 "targetSdkVersion": 34,
-                "buildToolsVersion": "34.0.0",
-                "permissions": ["CAMERA", "RECORD_AUDIO", "POST_NOTIFICATIONS"]
+                "buildToolsVersion": "34.0.0"
               },
               "extra": {
                 "eas": { "projectId": "742d678c-90bd-4cf1-b261-604691b3cf53" }
@@ -51,30 +61,19 @@ jobs:
           }' > app.json
           
           npm pkg delete type
-          
-          # تثبيت المكتبات اللازمة ومعالجة أخطاء المراجع
           npm install --legacy-peer-deps
-          npm install @expo/config-plugins @expo/prebuild-config --save-dev --legacy-peer-deps
           
-          # [الإجراء التصحيحي لخروج الأمر]: توليد ملفات الأندرويد يدوياً قبل التجميع
-          npx expo prebuild --platform android --no-install
-          
-          # حقن الإعدادات المفقودة (SDK 34 و Namespace) مباشرة لمنع انهيار التقييم
-          find android -name "build.gradle" -exec sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' {} + || true
-          find android -name "build.gradle" -exec sed -i 's/targetSdkVersion .*/targetSdkVersion 34/g' {} + || true
-          find android -name "build.gradle" -exec sed -i '/android {/a \    namespace "com.oasis.app"' {} + || true
+          # [إصلاح حاسم]: حقن الـ Namespace والـ SDK 34 مباشرة في مكتبات node_modules
+          # هذا يمنع خطأ "A problem occurred evaluating project :expo" المكرر في صورك
+          find node_modules -name "*.gradle" -exec sed -i '/android {/a \    namespace "com.oasis.app"\n    compileSdkVersion 34' {} + || true
 
-          # تصحيح مراجع Kotlin (extensions) وإصلاح تعارضات ZegoCloud
+          # تصحيح مراجع Kotlin و ZegoCloud لضمان استقرار الاتصال
           find node_modules -name "*.gradle" -exec sed -i 's/extensions.extraProperties/project.ext/g' {} + || true
-          find node_modules -name "*.gradle" -exec sed -i 's/extra\[/project.ext\[/g' {} + || true
           find node_modules -name "*.kts" -exec sed -i 's/extensions.extraProperties/project.ext/g' {} + || true
-          
           find node_modules -name "AndroidManifest.xml" -exec sed -i 's/package="com.zegouikitrebuiltcallrn"/ /g' {} + || true
-          find node_modules -name "index.js" -path "*zegocloud*" -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} + || true
 
       - name: 🚀 Build APK (Final Fix & Clear Cache)
         run: |
           cd mobile
-          export NPM_CONFIG_LEGACY_PEER_DEPS=true
-          # مسح التخزين المؤقت لضمان عدم تكرار أخطاء الصور السابقة وبدء بناء نظيف
+          # استخدام --clear-cache لمسح بقايا المحاولات الفاشلة الموضحة في صورك السابقة
           npx eas-cli build --platform android --profile preview --non-interactive --clear-cache
