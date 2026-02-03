@@ -49,7 +49,10 @@ jobs:
           
           npm pkg delete type
           
-          # [تحديث هام] تثبيت المكتبات الجديدة التي أضفتها في App.js لضمان عمل الإشعارات والاتصال
+          # [حل الخطأ المكتشف في الصورة] إجبار المكتبات على التوافق مع نسخة Gradle السحابية
+          npm install @expo/config-plugins expo-modules-core --save --legacy-peer-deps
+          
+          # [تحديث هام] تثبيت المكتبات الجديدة لضمان عمل الإشعارات والاتصال
           npm install expo-notifications expo-device expo-constants crypto-js react-delegate-component --save --legacy-peer-deps
           npm install @zegocloud/zego-uikit-prebuilt-call-rn zego-zim-react-native zego-zpns-react-native --save --legacy-peer-deps
           
@@ -67,5 +70,5 @@ jobs:
           cd mobile
           # إجبار السيرفر على تجاهل تعارضات الإصدارات أثناء التجميع
           export NPM_CONFIG_LEGACY_PEER_DEPS=true
-          # استخدام --clear-cache لمسح أي مخلفات من المحاولات الـ 200 الفاشلة السابقة
+          # استخدام --clear-cache لمسح أي مخلفات من المحاولات السابقة
           npx eas-cli build --platform android --profile preview --non-interactive --clear-cache
