@@ -25,7 +25,7 @@ jobs:
       - name: 📦 Match Credentials & Prep
         run: |
           cd mobile
-          # إجبار npm على قبول تداخل التبعيات لضمان تثبيت حزم Zego و Expo بنجاح
+          # حل تعارضات npm لضمان تثبيت حزم Zego و Expo بنجاح
           echo "legacy-peer-deps=true" > .npmrc
           
           # [حل خطأ الصور 1000079122 و 1000079128] تعريف الـ SDK يدوياً لحل مشكلة compileSdkVersion
@@ -60,7 +60,7 @@ jobs:
           # 3. التثبيت الشامل لكافة تبعيات المشروع
           npm install --legacy-peer-deps
           
-          # [إصلاح جراحي للأخطاء في الصور 1000079058 و 1000079122]
+          # [إصلاح جراحي للأخطاء الموضحة في الصور 1000079060 و 1000079122]
           # إجبار جميع المكتبات على استخدام SDK 34 وتصحيح مراجع Kotlin المتعطلة (extensions و extra)
           find node_modules -name "*.gradle" -exec sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' {} + || true
           find node_modules -name "*.gradle" -exec sed -i 's/extensions.extraProperties/project.ext/g' {} + || true
