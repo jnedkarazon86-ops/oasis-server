@@ -4,7 +4,7 @@ on:
     branches:
       - main
       - master
-  workflow_dispatch: # يسمح بتشغيل البناء يدوياً من تبويب Actions
+  workflow_dispatch: # يسمح بتشغيل البناء يدوياً من تبويب Actions في حال لم يبدأ تلقائياً
 
 jobs:
   build:
@@ -52,25 +52,23 @@ jobs:
           
           npm pkg delete type
           
-          # تثبيت المكتبات اللازمة للاتصال الحقيقي ومعالجة أخطاء المراجع
+          # تثبيت المكتبات اللازمة ومعالجة أخطاء المراجع
           npm install --legacy-peer-deps
           npm install @expo/config-plugins @expo/prebuild-config --save-dev --legacy-peer-deps
           
-          # [إصلاح حاسم لصور الأخطاء 1000079128 و 1000079172] 
-          # توليد مجلد الأندرويد يدوياً لحقن الإعدادات المفقودة قبل البناء
+          # [الإجراء التصحيحي لخروج الأمر]: توليد ملفات الأندرويد يدوياً قبل التجميع
           npx expo prebuild --platform android --no-install
           
-          # حقن الـ SDK 34 والـ Namespace مباشرة في ملفات الأندرويد الناتجة
+          # حقن الإعدادات المفقودة (SDK 34 و Namespace) مباشرة لمنع انهيار التقييم
           find android -name "build.gradle" -exec sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' {} + || true
           find android -name "build.gradle" -exec sed -i 's/targetSdkVersion .*/targetSdkVersion 34/g' {} + || true
           find android -name "build.gradle" -exec sed -i '/android {/a \    namespace "com.oasis.app"' {} + || true
 
-          # تصحيح مراجع Kotlin (extensions) التي ظهرت في سجلاتك السابقة
+          # تصحيح مراجع Kotlin (extensions) وإصلاح تعارضات ZegoCloud
           find node_modules -name "*.gradle" -exec sed -i 's/extensions.extraProperties/project.ext/g' {} + || true
           find node_modules -name "*.gradle" -exec sed -i 's/extra\[/project.ext\[/g' {} + || true
           find node_modules -name "*.kts" -exec sed -i 's/extensions.extraProperties/project.ext/g' {} + || true
           
-          # إصلاح تعارضات ZegoCloud لضمان استقرار الاتصال
           find node_modules -name "AndroidManifest.xml" -exec sed -i 's/package="com.zegouikitrebuiltcallrn"/ /g' {} + || true
           find node_modules -name "index.js" -path "*zegocloud*" -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} + || true
 
@@ -78,5 +76,5 @@ jobs:
         run: |
           cd mobile
           export NPM_CONFIG_LEGACY_PEER_DEPS=true
-          # استخدام --clear-cache لمسح بقايا المحاولات الفاشلة الموضحة في الصور
+          # مسح التخزين المؤقت لضمان عدم تكرار أخطاء الصور السابقة وبدء بناء نظيف
           npx eas-cli build --platform android --profile preview --non-interactive --clear-cache
