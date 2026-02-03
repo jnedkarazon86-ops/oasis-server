@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   StyleSheet, Text, View, TouchableOpacity, TextInput, FlatList, 
-  Alert, KeyboardAvoidingView, Platform, Image, ImageBackground, Modal, SafeAreaView, ActivityIndicator
+  Alert, KeyboardAvoidingView, Platform, Image, ImageBackground, SafeAreaView, ActivityIndicator, PermissionsAndroid
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { WebView } from 'react-native-webview'; 
 import { Audio } from 'expo-av'; 
 import * as ImagePicker from 'expo-image-picker';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
 
 // استيرادات ZegoCloud و Firebase
 import ZegoUIKitPrebuiltCallService, { ZegoSendCallInvitationButton } from '@zegocloud/zego-uikit-prebuilt-call-rn';
@@ -16,7 +17,7 @@ import { db, auth } from './firebaseConfig';
 import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, setDoc, doc } from 'firebase/firestore';
 import { onAuthStateChanged } from "firebase/auth";
 
-// --- [الربط مع ملفاتك] ---
+// الربط مع ملفاتك الثابتة
 import { OASIS_KEYS } from './Constants'; 
 import { encryptMessage, decryptMessage } from './encryption'; 
 import AuthScreen from './AuthScreen'; 
@@ -32,23 +33,68 @@ export default function App() {
   const [selectedUser, setSelectedUser] = useState(null); 
   const [message, setMessage] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
-  const [adIndex, setAdIndex] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const flatListRef = useRef();
 
-  const getCurrentTime = () => new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', hour12: true });
+  // 1. إعداد قناة الإشعارات يدوياً للأندرويد (لحل مشكلة الفراغ في لوحة التحكم)
+  const setupNotificationChannel = async () => {
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('zego_video_call', {
+        name: 'Incoming Calls',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      });
+    }
+  };
 
-  useEffect(() => {
-    const adTimer = setInterval(() => {
-        setAdIndex((prev) => (prev + 1) % OASIS_KEYS.PROFIT_LINKS.length);
-    }, OASIS_KEYS.AD_REFRESH_RATE); 
-    return () => clearInterval(adTimer);
-  }, []);
+  const requestAppPermissions = async () => {
+    if (Platform.OS === 'android') {
+      await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.CAMERA,
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+      ]);
+    }
+    const { status } = await Notifications.requestPermissionsAsync();
+    return status === 'granted';
+  };
 
-  // تهيئة الاتصال باستخدام بيانات ZegoCloud المستخرجة
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser && currentUser.emailVerified) {
         setUser(currentUser);
+        await requestAppPermissions();
+        await setupNotificationChannel();
+
+        // جلب توكن الجهاز
+        const tokenData = await Notifications.getDevicePushTokenAsync();
+        const deviceToken = tokenData.data;
+
+        // تهيئة ZegoCloud مع إعدادات القناة الافتراضية
+        ZegoUIKitPrebuiltCallService.init(
+            1773421291, 
+            "48f1a163421aeb2dfdf57ac214f51362d8733ee19be92d3745a160a2521de2d7", 
+            currentUser.uid, 
+            currentUser.email.split('@')[0], 
+            [ZIM, ZPNs],
+            { 
+              resourceID: "zegouikit_call", 
+              androidNotificationConfig: { 
+                // نستخدم المعرف الذي أنشأناه يدوياً ليتطابق مع "فراغ" لوحة التحكم
+                channelID: "zego_video_call", 
+                channelName: "Incoming Calls" 
+              } 
+            }
+        ).then(() => {
+            ZPNs.setPushConfig({ enable: true, includeDetails: true });
+            ZPNs.registerPush({ 
+                token: deviceToken, 
+                provider: Platform.OS === 'ios' ? 'apns' : 'fcm' 
+            });
+        });
+
         await setDoc(doc(db, "users", currentUser.uid), { 
             email: currentUser.email, id: currentUser.uid, lastSeen: serverTimestamp() 
         }, { merge: true });
@@ -58,27 +104,15 @@ export default function App() {
           setAllUsers(users); setFilteredUsers(users);
         });
 
-        // استخدام AppID و AppSign من بياناتك
-        ZegoUIKitPrebuiltCallService.init(
-            1773421291, // AppID
-            "48f1a163421aeb2dfdf57ac214f51362d8733ee19be92d3745a160a2521de2d7", // AppSign
-            currentUser.uid, 
-            currentUser.email.split('@')[0], 
-            [ZIM, ZPNs],
-            { 
-              resourceID: "zegouikit_call", // معرف مورد الإشعارات
-              androidNotificationConfig: { 
-                channelID: "ZegoUIKit", 
-                channelName: "ZegoUIKit" 
-              } 
-            }
-        );
-      } else { setUser(null); }
+      } else { 
+        ZegoUIKitPrebuiltCallService.uninit();
+        setUser(null); 
+      }
     });
     return () => unsubscribeAuth();
   }, []);
 
-  // ... (دوال جلب الرسائل، الإرسال، والرفع تبقى كما هي)
+  // ... (بقية دوال المراسلة والرفع تبقى كما هي لضمان استقرار الوظائف)
   useEffect(() => {
     if (selectedUser && user) {
       const chatId = selectedUser.isGroup ? selectedUser.id : (user.uid < selectedUser.id ? `${user.uid}_${selectedUser.id}` : `${selectedUser.id}_${user.uid}`);
@@ -97,9 +131,11 @@ export default function App() {
     const finalContent = type === 'text' ? encryptMessage(content, user.uid) : content;
     const chatId = selectedUser.isGroup ? selectedUser.id : (user.uid < selectedUser.id ? `${user.uid}_${selectedUser.id}` : `${selectedUser.id}_${user.uid}`);
     const collPath = selectedUser.isGroup ? `groups/${chatId}/messages` : `chats/${chatId}/messages`;
+    
     await addDoc(collection(db, collPath), { 
       text: finalContent, senderId: user.uid, senderName: user.email.split('@')[0], 
-      encryptionRef: user.uid, type, timestamp: serverTimestamp(), displayTime: getCurrentTime() 
+      encryptionRef: user.uid, type, timestamp: serverTimestamp(), 
+      displayTime: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) 
     });
     setMessage('');
   };
@@ -116,14 +152,14 @@ export default function App() {
       formData.append('file', {
         uri: Platform.OS === 'android' ? uri : uri.replace('file://', ''),
         type: type === 'image' ? 'image/jpeg' : 'audio/m4a',
-        name: `oasis_upload_${Date.now()}`
+        name: `oasis_${Date.now()}`
       });
       const response = await fetch(`${SERVER_URL}/api/upload-media`, {
         method: 'POST', body: formData, headers: { 'Content-Type': 'multipart/form-data' },
       });
       const result = await response.json();
       if (result.url) sendMessage(result.url, type);
-    } catch (error) { Alert.alert("خطأ", "فشل الرفع"); } finally { setUploading(false); }
+    } catch (error) { Alert.alert("خطأ", "فشل رفع الملف"); } finally { setUploading(false); }
   };
 
   if (!user) return <AuthScreen />;
@@ -134,15 +170,16 @@ export default function App() {
         <View style={{ flex: 1 }}>
           <View style={styles.mainHeader}>
             <Text style={styles.headerTitle}>Oasis</Text>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              <TouchableOpacity style={{marginRight: 15}}><MaterialCommunityIcons name="account-group-outline" size={26} color="white" /></TouchableOpacity>
-              <TouchableOpacity style={{marginRight: 15}}><Ionicons name="person-add-outline" size={24} color="white" /></TouchableOpacity>
+            <View style={styles.headerIcons}>
+              <TouchableOpacity><MaterialCommunityIcons name="account-group-outline" size={26} color="white" /></TouchableOpacity>
+              <TouchableOpacity style={{marginHorizontal: 15}}><Ionicons name="person-add-outline" size={24} color="white" /></TouchableOpacity>
               <TouchableOpacity onPress={pickImage}><Ionicons name="camera-outline" size={26} color="white" /></TouchableOpacity>
             </View>
           </View>
 
-          {currentTab === 'Chats' && (
-            <FlatList data={filteredUsers} renderItem={({ item }) => (
+          <FlatList 
+            data={filteredUsers} 
+            renderItem={({ item }) => (
               <TouchableOpacity style={styles.chatRow} onPress={() => setSelectedUser(item)}>
                 <View style={styles.chatAvatar}><Text style={styles.avatarTxt}>{item.email[0].toUpperCase()}</Text></View>
                 <View style={styles.chatInfo}>
@@ -150,30 +187,28 @@ export default function App() {
                     <Text style={styles.lastMsg}>محادثة مشفرة آمنة...</Text>
                 </View>
               </TouchableOpacity>
-            )} keyExtractor={(item) => item.id} />
-          )}
-          {/* ... (Updates & Calls Tabs) */}
+            )} 
+            keyExtractor={(item) => item.id} 
+          />
           <NavigationTabs currentTab={currentTab} setCurrentTab={setCurrentTab} />
         </View>
       ) : (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
           <View style={styles.whatsappHeader}>
-            {/* أزرار الاتصال الصوتي والمرئي مدمجة من ZegoCloud */}
-            <View style={styles.callButtonsContainer}>
-              <ZegoSendCallInvitationButton 
-                  invitees={[{ userID: selectedUser.id, userName: selectedUser.email }]} 
-                  isVideoCall={false} // اتصال صوتي
-                  resourceID={"zegouikit_call"} 
-                  backgroundColor="transparent" width={35} height={35} 
-              />
-              <ZegoSendCallInvitationButton 
-                  invitees={[{ userID: selectedUser.id, userName: selectedUser.email }]} 
-                  isVideoCall={true} // اتصال مرئي
-                  resourceID={"zegouikit_call"} 
-                  backgroundColor="transparent" width={35} height={35} 
-              />
+             <View style={styles.callButtonsContainer}>
+                <ZegoSendCallInvitationButton 
+                    invitees={[{ userID: selectedUser.id, userName: selectedUser.email }]} 
+                    isVideoCall={false} 
+                    resourceID={"zegouikit_call"} 
+                    backgroundColor="transparent" width={35} height={35} 
+                />
+                <ZegoSendCallInvitationButton 
+                    invitees={[{ userID: selectedUser.id, userName: selectedUser.email }]} 
+                    isVideoCall={true} 
+                    resourceID={"zegouikit_call"} 
+                    backgroundColor="transparent" width={35} height={35} 
+                />
             </View>
-
             <View style={styles.headerInfoSection}>
                 <Text style={styles.chatTitleText}>{selectedUser.email.split('@')[0]}</Text>
                 <Text style={{color: '#00a884', fontSize: 11}}>نشط الآن</Text>
@@ -182,15 +217,19 @@ export default function App() {
           </View>
 
           <ImageBackground source={{ uri: 'https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png' }} style={{flex: 1}}>
-            <FlatList data={chatMessages} renderItem={({ item }) => (
+            <FlatList 
+                ref={flatListRef}
+                data={chatMessages} 
+                onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
+                renderItem={({ item }) => (
               <View style={[styles.bubble, item.senderId === user.uid ? styles.whatsappMyBubble : styles.whatsappOtherBubble]}>
                 {item.type === 'image' ? (
-                    <Image source={{ uri: item.text }} style={{ width: 200, height: 200, borderRadius: 10 }} />
+                    <Image source={{ uri: item.text }} style={styles.messageImage} />
                 ) : ( <Text style={styles.messageText}>{item.text}</Text> )}
                 <Text style={styles.whatsappMiniTime}>{item.displayTime}</Text>
               </View>
             )} keyExtractor={(item) => item.id} />
-            {uploading && <ActivityIndicator size="large" color="#00a884" />}
+            {uploading && <ActivityIndicator size="large" color="#00a884" style={{marginBottom: 20}} />}
           </ImageBackground>
 
           <View style={styles.whatsappInputBar}>
@@ -210,8 +249,9 @@ export default function App() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0b141a' },
-  mainHeader: { height: 60, backgroundColor: '#0b141a', flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 15, alignItems: 'center' },
+  mainHeader: { height: 60, backgroundColor: '#0b141a', flexDirection: 'row-reverse', justifyContent: 'space-between', paddingHorizontal: 15, alignItems: 'center' },
   headerTitle: { color: 'white', fontSize: 22, fontWeight: 'bold' },
+  headerIcons: { flexDirection: 'row', alignItems: 'center' },
   whatsappHeader: { height: 65, backgroundColor: '#1f2c34', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10 },
   callButtonsContainer: { flexDirection: 'row', alignItems: 'center', width: 90, justifyContent: 'space-around' },
   headerInfoSection: { flex: 1, alignItems: 'flex-end', paddingRight: 15 },
@@ -229,7 +269,7 @@ const styles = StyleSheet.create({
   inputMainCard: { flex: 1, backgroundColor: '#1f2c34', borderRadius: 25, paddingHorizontal: 15, height: 48, flexDirection: 'row', alignItems: 'center' },
   whatsappTextInput: { flex: 1, color: 'white', textAlign: 'right' },
   whatsappAudioBtn: { width: 48, height: 48, backgroundColor: '#00a884', borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginLeft: 8 },
-  messageText: { color: 'white', fontSize: 16 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  messageText: { color: 'white', fontSize: 16, textAlign: 'right' },
+  messageImage: { width: 220, height: 220, borderRadius: 10 },
   bubble: { padding: 10, borderRadius: 10, margin: 8 }
 });
