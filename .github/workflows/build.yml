@@ -25,10 +25,10 @@ jobs:
       - name: 📦 Match Credentials & Prep
         run: |
           cd mobile
-          # حل جذري لخطأ ERESOLVE ومنع توقف البناء في الثواني الأولى
+          # حل مشكلة التعارضات ومنع توقف البناء بسبب الحماية الصارمة لـ npm
           echo "legacy-peer-deps=true" > .npmrc
           
-          # تأمين هوية التطبيق لتطابق مفتاح التوقيع
+          # تأمين هوية التطبيق وتحديث الإعدادات لتشمل التراخيص المطلوبة في App.js
           echo '{
             "expo": {
               "name": "Oasis",
@@ -36,7 +36,8 @@ jobs:
               "version": "1.0.0",
               "owner": "aboahj",
               "android": {
-                "package": "com.aboahj.oasisapp"
+                "package": "com.aboahj.oasisapp",
+                "permissions": ["CAMERA", "RECORD_AUDIO", "POST_NOTIFICATIONS"]
               },
               "extra": {
                 "eas": {
@@ -48,22 +49,23 @@ jobs:
           
           npm pkg delete type
           
-          # [تحديث] تثبيت المكتبات المفقودة (الملاحة، واجهات Zego، والتشفير) لضمان عبور مرحلة الـ Bundle
-          npm install react-delegate-component @react-navigation/native-stack crypto-js --save --legacy-peer-deps
+          # [تحديث هام] تثبيت المكتبات الجديدة التي أضفتها في App.js لضمان عمل الإشعارات والاتصال
+          npm install expo-notifications expo-device expo-constants crypto-js react-delegate-component --save --legacy-peer-deps
+          npm install @zegocloud/zego-uikit-prebuilt-call-rn zego-zim-react-native zego-zpns-react-native --save --legacy-peer-deps
           
-          # دمج التبعيات العامة للمشروع
+          # تثبيت بقية تبعيات المشروع
           npm install --legacy-peer-deps
           
-          # إصلاح تعارض الأسماء في AndroidManifest لضمان عبور مرحلة gradlew بنجاح
+          # إصلاح تعارض الأسماء في أندرويد لضمان عبور مرحلة التجميع النهائي (Gradle)
           find node_modules -name "AndroidManifest.xml" -exec sed -i 's/package="com.zegouikitrebuiltcallrn"/ /g' {} + || true
           
-          # إصلاح كود ZegoCloud لفتح نفق البيانات المشفر بنجاح
+          # إصلاحات الأخطاء البرمجية داخل مكتبات Zego لضمان التوافق مع React Native الحديث
           find node_modules -name "index.js" -path "*zegocloud*" -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} + || true
 
       - name: 🚀 Build APK (Final Fix & Clear Cache)
         run: |
           cd mobile
-          # إجبار الخادم السحابي على قبول التعارضات أثناء التجميع النهائي
+          # إجبار السيرفر على تجاهل تعارضات الإصدارات أثناء التجميع
           export NPM_CONFIG_LEGACY_PEER_DEPS=true
-          # استخدام --clear-cache لضمان حذف أي ملفات تالفة من المحاولات السابقة
+          # استخدام --clear-cache لمسح أي مخلفات من المحاولات الـ 200 الفاشلة السابقة
           npx eas-cli build --platform android --profile preview --non-interactive --clear-cache
