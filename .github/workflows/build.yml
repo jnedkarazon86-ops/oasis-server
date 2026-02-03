@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - main
+      - master
+  workflow_dispatch: # مضاف: للسماح لك بتشغيل البناء يدوياً من تبويب Actions
 
 jobs:
   build:
@@ -25,10 +27,10 @@ jobs:
       - name: 📦 Match Credentials & Prep
         run: |
           cd mobile
-          # حل تعارضات npm لضمان تثبيت حزم Zego و Expo بنجاح لضمان الاتصال الحقيقي
+          # حل تعارضات npm لضمان تثبيت حزم Zego و Expo بنجاح
           echo "legacy-peer-deps=true" > .npmrc
           
-          # [حل جذري لخطأ الصور 1000079122 و 1000079172] تعريف الـ SDK يدوياً
+          # [حل جذري لخطأ compileSdkVersion الموضح في السجلات]
           echo '{
             "expo": {
               "name": "Oasis",
@@ -50,24 +52,23 @@ jobs:
           
           npm pkg delete type
           
-          # تثبيت أدوات بناء Expo والمكتبات الأساسية (لحل أخطاء الصور 1000079060)
+          # تثبيت المكتبات اللازمة للاتصال الحقيقي ومعالجة أخطاء المراجع
           npm install @expo/config-plugins@~8.0.0 @expo/prebuild-config expo-modules-core@~1.12.0 --save --legacy-peer-deps
           npm install expo-notifications expo-device expo-constants crypto-js react-delegate-component --save --legacy-peer-deps
           npm install @zegocloud/zego-uikit-prebuilt-call-rn zego-zim-react-native zego-zpns-react-native --save --legacy-peer-deps
           
           npm install --legacy-peer-deps
           
-          # [إصلاح جراحي حاسم]: حقن الـ Namespace لمنع تعارضات Gradle 8.3 الموضحة في السجلات
+          # [إصلاح جراحي حاسم]: حقن الـ Namespace لمنع تعارضات Gradle 8.3
           find node_modules -name "*.gradle" -exec sed -i '/android {/a \    namespace "com.oasis.app"' {} + || true
 
-          # [إصلاح الأخطاء الموضحة في الصور 1000079060 و 1000079122]
-          # تصحيح مراجع Kotlin (extensions و extra) وإجبار استخدام SDK 34 في كل المكتبات
+          # [إصلاح الأخطاء الموضحة في صور السجلات]
           find node_modules -name "*.gradle" -exec sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' {} + || true
           find node_modules -name "*.gradle" -exec sed -i 's/extensions.extraProperties/project.ext/g' {} + || true
           find node_modules -name "*.gradle" -exec sed -i 's/extra\[/project.ext\[/g' {} + || true
           find node_modules -name "*.kts" -exec sed -i 's/extensions.extraProperties/project.ext/g' {} + || true
           
-          # إصلاح تعارضات ZegoCloud في ملفات تعريف الأندرويد لضمان استقرار الاتصال
+          # إصلاح تعارضات ZegoCloud لضمان استقرار الاتصال
           find node_modules -name "AndroidManifest.xml" -exec sed -i 's/package="com.zegouikitrebuiltcallrn"/ /g' {} + || true
           find node_modules -name "index.js" -path "*zegocloud*" -exec sed -i "s/import { typeof } from 'react-native';/import { } from 'react-native';/g" {} + || true
 
@@ -75,5 +76,5 @@ jobs:
         run: |
           cd mobile
           export NPM_CONFIG_LEGACY_PEER_DEPS=true
-          # استخدام --clear-cache لمسح بقايا المحاولات الفاشلة الموضحة في الصور وضمان بناء نظيف تماماً
+          # استخدام --clear-cache لمسح بقايا المحاولات الفاشلة الموضحة في الصور
           npx eas-cli build --platform android --profile preview --non-interactive --clear-cache
