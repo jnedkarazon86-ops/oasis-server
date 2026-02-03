@@ -29,19 +29,20 @@ jobs:
           cd mobile
           echo "legacy-peer-deps=true" > .npmrc
           
-          # [تعديل eas.json] لفرض بيئة بناء تدعم SDK 34 وتتجاوز أخطاء الصور 1000079138 و 1000079200
+          # [إصلاح حاسم]: إضافة channel لضمان خروج الأمر وعدم تعليقه كما في الصورة 1000079226
           echo '{
             "build": {
               "preview": {
                 "android": {
                   "buildType": "apk",
-                  "image": "ubuntu-22.04-jdk-17-ndk-r25b"
-                }
+                  "image": "latest"
+                },
+                "channel": "preview"
               }
             }
           }' > eas.json
 
-          # إعداد app.json لتعريف الـ SDK يدوياً (علاج خطأ compileSdkVersion is not specified)
+          # إعداد app.json (علاج خطأ compileSdkVersion الموضح في الصور)
           echo '{
             "expo": {
               "name": "Oasis",
@@ -63,11 +64,10 @@ jobs:
           npm pkg delete type
           npm install --legacy-peer-deps
           
-          # [إصلاح حاسم]: حقن الـ Namespace والـ SDK 34 مباشرة في مكتبات node_modules
-          # هذا يمنع خطأ "A problem occurred evaluating project :expo" المكرر في صورك
+          # حقن الـ Namespace والـ SDK 34 مباشرة في المكتبات (علاج جذري لصور الأخطاء)
           find node_modules -name "*.gradle" -exec sed -i '/android {/a \    namespace "com.oasis.app"\n    compileSdkVersion 34' {} + || true
 
-          # تصحيح مراجع Kotlin و ZegoCloud لضمان استقرار الاتصال
+          # تصحيح مراجع Kotlin و ZegoCloud
           find node_modules -name "*.gradle" -exec sed -i 's/extensions.extraProperties/project.ext/g' {} + || true
           find node_modules -name "*.kts" -exec sed -i 's/extensions.extraProperties/project.ext/g' {} + || true
           find node_modules -name "AndroidManifest.xml" -exec sed -i 's/package="com.zegouikitrebuiltcallrn"/ /g' {} + || true
@@ -75,5 +75,5 @@ jobs:
       - name: 🚀 Build APK (Final Fix & Clear Cache)
         run: |
           cd mobile
-          # استخدام --clear-cache لمسح بقايا المحاولات الفاشلة الموضحة في صورك السابقة
+          # استخدام --non-interactive لضمان عدم توقف الأمر بانتظار إدخال يدوي
           npx eas-cli build --platform android --profile preview --non-interactive --clear-cache
