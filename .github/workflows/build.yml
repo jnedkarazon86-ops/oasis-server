@@ -29,7 +29,7 @@ jobs:
           cd mobile
           echo "legacy-peer-deps=true" > .npmrc
           
-          # [إصلاح حاسم]: إضافة channel لضمان خروج الأمر وعدم تعليقه كما في الصورة 1000079226
+          # إعداد eas.json لضمان القناة وبيئة البناء الصحيحة
           echo '{
             "build": {
               "preview": {
@@ -42,7 +42,7 @@ jobs:
             }
           }' > eas.json
 
-          # إعداد app.json (علاج خطأ compileSdkVersion الموضح في الصور)
+          # إعداد app.json لضمان تعريفات الأندرويد الأساسية
           echo '{
             "expo": {
               "name": "Oasis",
@@ -64,16 +64,19 @@ jobs:
           npm pkg delete type
           npm install --legacy-peer-deps
           
-          # حقن الـ Namespace والـ SDK 34 مباشرة في المكتبات (علاج جذري لصور الأخطاء)
-          find node_modules -name "*.gradle" -exec sed -i '/android {/a \    namespace "com.oasis.app"\n    compileSdkVersion 34' {} + || true
+          # [تصحيح خطأ الصورة 1000079246]: الحقن بطريقة متوافقة مع Gradle 8.3
+          # سنستخدم علامة (=) ونضع الإعدادات داخل بلوك android مباشرة لضمان التعرف عليها
+          find node_modules -name "*.gradle" -exec sed -i '/android {/a \    namespace = "com.oasis.app"\n    compileSdkVersion = 34\n    targetSdkVersion = 34' {} + || true
 
-          # تصحيح مراجع Kotlin و ZegoCloud
+          # تصحيح مراجع Kotlin لضمان عدم تعارض المكونات
           find node_modules -name "*.gradle" -exec sed -i 's/extensions.extraProperties/project.ext/g' {} + || true
           find node_modules -name "*.kts" -exec sed -i 's/extensions.extraProperties/project.ext/g' {} + || true
+          
+          # إصلاح تعارضات ZegoCloud والاتصال
           find node_modules -name "AndroidManifest.xml" -exec sed -i 's/package="com.zegouikitrebuiltcallrn"/ /g' {} + || true
 
       - name: 🚀 Build APK (Final Fix & Clear Cache)
         run: |
           cd mobile
-          # استخدام --non-interactive لضمان عدم توقف الأمر بانتظار إدخال يدوي
+          # إجبار النظام على بناء نظيف تماماً لمسح أخطاء المحاولات السابقة
           npx eas-cli build --platform android --profile preview --non-interactive --clear-cache
