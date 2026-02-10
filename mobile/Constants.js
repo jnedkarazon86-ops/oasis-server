@@ -1,6 +1,12 @@
 // mobile/Constants.js
 
+/**
+ * ملف الإعدادات المركزية للمشروع (Oasis App)
+ * يحتوي على مفاتيح Firebase و ZegoCloud اللازمة للتشغيل
+ */
+
 export const OASIS_KEYS = {
+  // إعدادات قاعدة البيانات والتنبيهات من Firebase
   FIREBASE: {
     apiKey: "AIzaSyBKPGFbYjqEacHoU61DiUYq4QJzHENVUE0",
     authDomain: "oasis-app-afa66.firebaseapp.com",
@@ -9,10 +15,16 @@ export const OASIS_KEYS = {
     messagingSenderId: "382600269975",
     appId: "1:382600269975:android:d4fbc3e410dc0652cfd9d2"
   },
+
+  // إعدادات ZegoCloud للمكالمات الصوتية والمرئية (Mobile SDK)
   ZEGO: {
-    appID: 1773421291,
-    appSign: "48f1a163421aeb2dfdf57ac214f51362d8733ee19be92d3745a160a2521de2d7"
+    appID: 1773421291, // مستخرج من تحليل الصور
+    appSign: "48f1a163421aeb2dfdf57ac214f51362d8733ee19be92d3745a160a2521de2d7", // مستخرج من تحليل الصور
+    serverSecret: "48167f05ad6fff1777e0aec0e17a00ef", // القيمة التي زودتني بها الآن
+    resourceID: "zegouikit_call", // المعرف اللازم لتفعيل واجهة الاتصال والتنبيهات
   },
+
+  // إعدادات الإعلانات والربح
   AD_REFRESH_RATE: 60000, 
   PROFIT_LINKS: [
     "https://www.effectivegatecpm.com/pv5wwvpt?key=d089e046a8ec90d9b2b95e7b32944807", 
