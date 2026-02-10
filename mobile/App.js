@@ -17,7 +17,7 @@ import { db, auth } from './firebaseConfig';
 import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, setDoc, doc } from 'firebase/firestore';
 import { onAuthStateChanged } from "firebase/auth";
 
-// الربط مع ملفاتك الثابتة
+// الربط مع ملفاتك الثابتة (تم الربط هنا لضمان مصدر واحد للبيانات)
 import { OASIS_KEYS } from './Constants'; 
 import { encryptMessage, decryptMessage } from './encryption'; 
 import AuthScreen from './AuthScreen'; 
@@ -36,7 +36,7 @@ export default function App() {
   const [uploading, setUploading] = useState(false);
   const flatListRef = useRef();
 
-  // 1. إعداد قناة الإشعارات يدوياً للأندرويد (لحل مشكلة الفراغ في لوحة التحكم)
+  // إعداد قناة الإشعارات للأندرويد
   const setupNotificationChannel = async () => {
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('zego_video_call', {
@@ -68,21 +68,20 @@ export default function App() {
         await requestAppPermissions();
         await setupNotificationChannel();
 
-        // جلب توكن الجهاز
+        // جلب توكن الجهاز للإشعارات
         const tokenData = await Notifications.getDevicePushTokenAsync();
         const deviceToken = tokenData.data;
 
-        // تهيئة ZegoCloud مع إعدادات القناة الافتراضية
+        // تهيئة ZegoCloud باستخدام البيانات من Constants.js
         ZegoUIKitPrebuiltCallService.init(
-            1773421291, 
-            "48f1a163421aeb2dfdf57ac214f51362d8733ee19be92d3745a160a2521de2d7", 
+            OASIS_KEYS.ZEGO.appID, 
+            OASIS_KEYS.ZEGO.appSign, 
             currentUser.uid, 
             currentUser.email.split('@')[0], 
             [ZIM, ZPNs],
             { 
-              resourceID: "zegouikit_call", 
+              resourceID: OASIS_KEYS.ZEGO.resourceID, 
               androidNotificationConfig: { 
-                // نستخدم المعرف الذي أنشأناه يدوياً ليتطابق مع "فراغ" لوحة التحكم
                 channelID: "zego_video_call", 
                 channelName: "Incoming Calls" 
               } 
@@ -93,7 +92,7 @@ export default function App() {
                 token: deviceToken, 
                 provider: Platform.OS === 'ios' ? 'apns' : 'fcm' 
             });
-        });
+        }).catch(err => console.error("Zego Init Error:", err));
 
         await setDoc(doc(db, "users", currentUser.uid), { 
             email: currentUser.email, id: currentUser.uid, lastSeen: serverTimestamp() 
@@ -112,7 +111,6 @@ export default function App() {
     return () => unsubscribeAuth();
   }, []);
 
-  // ... (بقية دوال المراسلة والرفع تبقى كما هي لضمان استقرار الوظائف)
   useEffect(() => {
     if (selectedUser && user) {
       const chatId = selectedUser.isGroup ? selectedUser.id : (user.uid < selectedUser.id ? `${user.uid}_${selectedUser.id}` : `${selectedUser.id}_${user.uid}`);
@@ -196,16 +194,17 @@ export default function App() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
           <View style={styles.whatsappHeader}>
              <View style={styles.callButtonsContainer}>
+                {/* تم تعديل أزرار الاتصال لتستخدم القيم من Constants */}
                 <ZegoSendCallInvitationButton 
                     invitees={[{ userID: selectedUser.id, userName: selectedUser.email }]} 
                     isVideoCall={false} 
-                    resourceID={"zegouikit_call"} 
+                    resourceID={OASIS_KEYS.ZEGO.resourceID} 
                     backgroundColor="transparent" width={35} height={35} 
                 />
                 <ZegoSendCallInvitationButton 
                     invitees={[{ userID: selectedUser.id, userName: selectedUser.email }]} 
                     isVideoCall={true} 
-                    resourceID={"zegouikit_call"} 
+                    resourceID={OASIS_KEYS.ZEGO.resourceID} 
                     backgroundColor="transparent" width={35} height={35} 
                 />
             </View>
