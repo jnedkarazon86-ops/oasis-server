@@ -34,7 +34,10 @@
         "WAKE_LOCK",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"
-      ]
+      ],
+      "metaData": {
+        "com.startapp.sdk.APPLICATION_ID": "201405341"
+      }
     },
     "extra": {
       "eas": {
