@@ -7,7 +7,9 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Audio } from 'expo-av'; 
 import * as ImagePicker from 'expo-image-picker';
 import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
+
+// استيراد إعلانات Start.io
+import StartAppBanner from 'react-native-startapp-ads';
 
 // استيرادات ZegoCloud و Firebase
 import ZegoUIKitPrebuiltCallService, { ZegoSendCallInvitationButton } from '@zegocloud/zego-uikit-prebuilt-call-rn';
@@ -17,7 +19,6 @@ import { db, auth } from './firebaseConfig';
 import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, setDoc, doc } from 'firebase/firestore';
 import { onAuthStateChanged } from "firebase/auth";
 
-// الربط مع ملفاتك الثابتة (تم الربط هنا لضمان مصدر واحد للبيانات)
 import { OASIS_KEYS } from './Constants'; 
 import { encryptMessage, decryptMessage } from './encryption'; 
 import AuthScreen from './AuthScreen'; 
@@ -36,15 +37,13 @@ export default function App() {
   const [uploading, setUploading] = useState(false);
   const flatListRef = useRef();
 
-  // إعداد قناة الإشعارات للأندرويد
+  // تهيئة الإشعارات والأذونات
   const setupNotificationChannel = async () => {
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('zego_video_call', {
         name: 'Incoming Calls',
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#FF231F7C',
-        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       });
     }
   };
@@ -68,11 +67,10 @@ export default function App() {
         await requestAppPermissions();
         await setupNotificationChannel();
 
-        // جلب توكن الجهاز للإشعارات
         const tokenData = await Notifications.getDevicePushTokenAsync();
         const deviceToken = tokenData.data;
 
-        // تهيئة ZegoCloud باستخدام البيانات من Constants.js
+        // تهيئة ZegoCloud
         ZegoUIKitPrebuiltCallService.init(
             OASIS_KEYS.ZEGO.appID, 
             OASIS_KEYS.ZEGO.appSign, 
@@ -81,17 +79,11 @@ export default function App() {
             [ZIM, ZPNs],
             { 
               resourceID: OASIS_KEYS.ZEGO.resourceID, 
-              androidNotificationConfig: { 
-                channelID: "zego_video_call", 
-                channelName: "Incoming Calls" 
-              } 
+              androidNotificationConfig: { channelID: "zego_video_call", channelName: "Incoming Calls" } 
             }
         ).then(() => {
             ZPNs.setPushConfig({ enable: true, includeDetails: true });
-            ZPNs.registerPush({ 
-                token: deviceToken, 
-                provider: Platform.OS === 'ios' ? 'apns' : 'fcm' 
-            });
+            ZPNs.registerPush({ token: deviceToken, provider: Platform.OS === 'ios' ? 'apns' : 'fcm' });
         }).catch(err => console.error("Zego Init Error:", err));
 
         await setDoc(doc(db, "users", currentUser.uid), { 
@@ -166,6 +158,11 @@ export default function App() {
     <SafeAreaView style={styles.container}>
       {!selectedUser ? (
         <View style={{ flex: 1 }}>
+          {/* الإعلان في أعلى القائمة الرئيسية */}
+          <View style={styles.topAdBanner}>
+             <StartAppBanner appId={OASIS_KEYS.ADS.STARTAPP_ID} />
+          </View>
+          
           <View style={styles.mainHeader}>
             <Text style={styles.headerTitle}>Oasis</Text>
             <View style={styles.headerIcons}>
@@ -192,20 +189,25 @@ export default function App() {
         </View>
       ) : (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+          
+          {/* الإعلان في أعلى صفحة المحادثة (فوق الاسم) */}
+          <View style={styles.topAdBanner}>
+             <StartAppBanner appId={OASIS_KEYS.ADS.STARTAPP_ID} />
+          </View>
+
           <View style={styles.whatsappHeader}>
              <View style={styles.callButtonsContainer}>
-                {/* تم تعديل أزرار الاتصال لتستخدم القيم من Constants */}
                 <ZegoSendCallInvitationButton 
                     invitees={[{ userID: selectedUser.id, userName: selectedUser.email }]} 
                     isVideoCall={false} 
                     resourceID={OASIS_KEYS.ZEGO.resourceID} 
-                    backgroundColor="transparent" width={35} height={35} 
+                    backgroundColor="transparent" width={30} height={30} 
                 />
                 <ZegoSendCallInvitationButton 
                     invitees={[{ userID: selectedUser.id, userName: selectedUser.email }]} 
                     isVideoCall={true} 
                     resourceID={OASIS_KEYS.ZEGO.resourceID} 
-                    backgroundColor="transparent" width={35} height={35} 
+                    backgroundColor="transparent" width={30} height={30} 
                 />
             </View>
             <View style={styles.headerInfoSection}>
@@ -248,11 +250,26 @@ export default function App() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0b141a' },
+  topAdBanner: { 
+    height: OASIS_KEYS.ADS.BANNER_HEIGHT, 
+    backgroundColor: '#0b141a', 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#1f2c34'
+  },
   mainHeader: { height: 60, backgroundColor: '#0b141a', flexDirection: 'row-reverse', justifyContent: 'space-between', paddingHorizontal: 15, alignItems: 'center' },
   headerTitle: { color: 'white', fontSize: 22, fontWeight: 'bold' },
   headerIcons: { flexDirection: 'row', alignItems: 'center' },
-  whatsappHeader: { height: 65, backgroundColor: '#1f2c34', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10 },
-  callButtonsContainer: { flexDirection: 'row', alignItems: 'center', width: 90, justifyContent: 'space-around' },
+  whatsappHeader: { 
+    height: OASIS_KEYS.ADS.HEADER_HEIGHT, 
+    backgroundColor: '#1f2c34', 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingHorizontal: 10,
+    elevation: 5
+  },
+  callButtonsContainer: { flexDirection: 'row', alignItems: 'center', width: 80, justifyContent: 'space-around' },
   headerInfoSection: { flex: 1, alignItems: 'flex-end', paddingRight: 15 },
   chatTitleText: { color: 'white', fontSize: 17, fontWeight: 'bold' },
   chatRow: { flexDirection: 'row-reverse', padding: 15, alignItems: 'center' },
