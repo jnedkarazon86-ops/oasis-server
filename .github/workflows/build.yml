@@ -1,9 +1,7 @@
 name: Oasis Final Build
 on:
   push:
-    branches:
-      - main
-      - master
+    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
@@ -20,7 +18,6 @@ jobs:
           node-version: 18
 
       - name: 🏗 Setup EAS
-        # تعديل: استخدام التثبيت اليدوي لتجنب فشل exit code 1 الظاهر في الصورة
         run: npm install -g eas-cli
 
       - name: 📦 Match Credentials & Prep
@@ -28,28 +25,29 @@ jobs:
           set -e
           cd mobile
           
-          # إنشاء ملف الإعدادات لضمان تجاوز مشاكل التبعيات
+          # حل مشكلة التبعيات وتجاهل تضارب إصدارات الإعلانات
           echo "legacy-peer-deps=true" > .npmrc
           
-          # 1. تثبيت المكتبات مع تشغيل ملف الإصلاح الخاص بك (typeof fix)
-          npm install --legacy-peer-deps
+          # 1. تثبيت المكتبات مع فرض تثبيت أقرب إصدار متاح لتجنب خطأ ETARGET
+          npm install --legacy-peer-deps || npm install --legacy-peer-deps --force
+
+          # 2. تشغيل ملف الإصلاح الخاص بك (typeof fix)
           node patch-zegocloud.js
 
-          # 2. إنشاء app.json بالهوية الصحيحة (com.oasis.app2026) ليتوافق مع Firebase
+          # 3. إنشاء app.json بالهوية الصحيحة ليتوافق مع Firebase
           echo '{"expo": {"name": "Oasis", "slug": "oasis-app", "version": "1.0.0", "android": {"package": "com.oasis.app2026", "compileSdkVersion": 34, "targetSdkVersion": 34}, "extra": {"eas": {"projectId": "742d678c-90bd-4cf1-b261-604691b3cf53"}}}}' > app.json
           
-          # 3. تهيئة بيئة أندرويد وتصحيح Gradle بناءً على أوامرك
+          # 4. تهيئة بيئة أندرويد وتصحيح Gradle
           npx expo prebuild --platform android --no-install
           find android -name "build.gradle" -exec sed -i '/android {/a \    namespace = "com.oasis.app2026"\n    compileSdk = 34\n    targetSdk = 34' {} + || true
           
-          # 4. إصلاح مراجع Kotlin و ZegoCloud في node_modules
+          # 5. إصلاح مراجع Kotlin و ZegoCloud
           find node_modules -name "*.gradle" -exec sed -i 's/extensions.extraProperties/project.ext/g' {} + || true
           find node_modules -name "AndroidManifest.xml" -exec sed -i 's/package="com.zegouikitrebuiltcallrn"/ /g' {} + || true
 
       - name: 🚀 Build APK
         run: |
           cd mobile
-          # استخدام الـ Token مباشرة من الأسرار لبدء البناء
           EAS_NO_OTP=1 npx eas-cli build --platform android --profile preview --non-interactive --clear-cache
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
