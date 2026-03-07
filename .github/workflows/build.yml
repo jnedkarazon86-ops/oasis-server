@@ -1,4 +1,4 @@
-name: Oasis final Build
+name: Oasis Final Build
 on:
   push:
     branches:
