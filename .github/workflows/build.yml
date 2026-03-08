@@ -1,15 +1,12 @@
 name: Oasis Final Build
 on:
   push:
-    branches:
-      - main
-      - master
+    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    # الخروج التلقائي إذا استمرت العملية أكثر من 40 دقيقة (لضمان عدم التعليق)
     timeout-minutes: 40
     steps:
       - name: 🏗 Checkout repository
@@ -21,44 +18,36 @@ jobs:
           node-version: 18
 
       - name: 🏗 Setup EAS
-        uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
+        run: npm install -g eas-cli
 
       - name: 📦 Match Credentials & Prep
         run: |
-          # أمر الخروج الفوري في حال فشل أي سطر برمجي
           set -e
           cd mobile
           
+          # 1. تنظيف package.json وتجنب خطأ التنسيق JSON
+          node -e "let j=require('./package.json'); delete j.dependencies['react-native-startapp-ads']; require('fs').writeFileSync('./package.json', JSON.stringify(j, null, 2))"
+          
           echo "legacy-peer-deps=true" > .npmrc
-          
-          # 1. إنشاء eas.json (حل مشكلة التعليق وتثبيت القناة)
-          echo '{"build": {"preview": {"android": {"buildType": "apk", "image": "latest"}, "channel": "preview"}}}' > eas.json
-
-          # 2. إنشاء app.json (حل جذري لنقص compileSdkVersion)
-          echo '{"expo": {"name": "Oasis", "slug": "oasis-app", "version": "1.0.0", "owner": "aboahj", "android": {"package": "com.aboahj.oasisapp", "compileSdkVersion": 34, "targetSdkVersion": 34, "buildToolsVersion": "34.0.0"}, "extra": {"eas": {"projectId": "742d678c-90bd-4cf1-b261-604691b3cf53"}}}}' > app.json
-          
-          npm pkg delete type
           npm install --legacy-peer-deps
 
-          # 3. توليد ملفات الأندرويد (Prebuild) لضمان وجود المسارات
-          npx expo prebuild --platform android --no-install
+          # 2. تشغيل ملف الإصلاح الخاص بك لـ ZegoCloud
+          node patch-zegocloud.js
 
-          # 4. تصحيح Gradle 8.3 (الحقن المتوافق مع سطر 16 في سجلاتك)
-          find android -name "build.gradle" -exec sed -i '/android {/a \    namespace = "com.oasis.app"\n    compileSdk = 34\n    targetSdk = 34' {} + || true
+          # 3. تثبيت معرف المشروع (ID) لضمان سحب البيانات من حسابك
+          echo '{"expo": {"name": "Oasis", "slug": "oasis-app", "version": "1.0.0", "android": {"package": "com.oasis.app2026", "compileSdkVersion": 34, "targetSdkVersion": 34}, "extra": {"eas": {"projectId": "742d678c-90bd-4cf1-b261-604691b3cf53"}}}}' > app.json
           
-          # 5. معالجة كافة مكتبات node_modules (لحل أخطاء Evaluating project)
-          find node_modules -name "*.gradle" -exec sed -i '/android {/a \    namespace = "com.oasis.app"\n    compileSdk = 34' {} + || true
+          # 4. تهيئة الأندرويد وحقن الـ Namespace (com.oasis.app2026)
+          npx expo prebuild --platform android --no-install
+          find android -name "build.gradle" -exec sed -i '/android {/a \    namespace = "com.oasis.app2026"\n    compileSdk = 34\n    targetSdk = 34' {} + || true
 
-          # 6. تصحيح مراجع Kotlin و ZegoCloud
-          find node_modules -name "*.gradle" -exec sed -i 's/extensions.extraProperties/project.ext/g' {} + || true
-          find node_modules -name "*.kts" -exec sed -i 's/extensions.extraProperties/project.ext/g' {} + || true
-          find node_modules -name "AndroidManifest.xml" -exec sed -i 's/package="com.zegouikitrebuiltcallrn"/ /g' {} + || true
-
-      - name: 🚀 Build APK (Final Fix & Clear Cache)
+      - name: 🚀 Build APK
         run: |
           cd mobile
-          # التنظيف والتشغيل غير التفاعلي لضمان الخروج بنتيجة (نجاح أو فشل صريح)
-          npx eas-cli build --platform android --profile preview --non-interactive --clear-cache
+          # الربط مع المشروع سحابياً لضمان استخدام بيانات الاعتماد الموجودة في حسابك
+          EAS_NO_OTP=1 npx eas-cli project:init --non-interactive || true
+          
+          # تعديل هام جداً: إضافة --non-interactive مع محاولة استخدام بيانات الاعتماد السحابية حصراً
+          EAS_NO_OTP=1 npx eas-cli build --platform android --profile preview --non-interactive --clear-cache
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
